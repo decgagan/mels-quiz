@@ -291,4 +291,272 @@ const WEEKLY = {
       },
     ]
   },
+  "2026-12-14": {
+    topics: [
+      {
+        id: "tv-comedy", title: "Classic TV Comedy", emoji: "😂",
+        blurb: "Catchphrases, sitcoms and much-loved double acts.",
+        questions: [
+          { q: "In 'Dad's Army', which member of the Home Guard platoon often shouted 'Don't panic!'?", options: ["Lance Corporal Jones", "Private Pike", "Sergeant Wilson", "Private Godfrey"], answer: "Lance Corporal Jones", hint: "He was the platoon's elderly butcher.", level: "easy" },
+          { q: "Which accident-prone sitcom character, played by Michael Crawford, was famous for saying 'Ooh, Betty!'?", options: ["Mr Bean", "Frank Spencer", "Victor Meldrew", "Basil Fawlty"], answer: "Frank Spencer", hint: "He starred in 'Some Mothers Do 'Ave 'Em'.", level: "easy" },
+          { q: "Which comedian played the title role in 'The Vicar of Dibley'?", options: ["Julie Walters", "Jennifer Saunders", "Dawn French", "Victoria Wood"], answer: "Dawn French", hint: "Her long-time comedy partner starred in 'Absolutely Fabulous'.", level: "easy" },
+          { q: "Which sitcom was set in the Grace Brothers department store?", options: ["Dinnerladies", "Open All Hours", "Hi-de-Hi!", "Are You Being Served?"], answer: "Are You Being Served?", hint: "Mrs Slocombe and Mr Humphries worked on the clothing floor.", level: "easy" },
+          { q: "In which sitcom did Ronnie Barker play the shopkeeper Arkwright, with David Jason as his nephew Granville?", options: ["Open All Hours", "Porridge", "The Two Ronnies", "Only Fools and Horses"], answer: "Open All Hours", hint: "The till in the corner shop had a mind of its own.", level: "easy" },
+          { q: "Which double act ended their shows by singing 'Bring Me Sunshine'?", options: ["The Two Ronnies", "Morecambe and Wise", "Cannon and Ball", "Little and Large"], answer: "Morecambe and Wise", hint: "Think of Eric and Ernie.", level: "easy" },
+          { q: "In 'Steptoe and Son', what did Albert and Harold Steptoe do for a living?", options: ["They were coal merchants", "They were chimney sweeps", "They were rag-and-bone men", "They were milkmen"], answer: "They were rag-and-bone men", hint: "They went round the streets with a horse and cart, collecting junk.", level: "medium" },
+          { q: "In 'Hi-de-Hi!', what was the name of the holiday camp?", options: ["Warners", "Butlins", "Pontins", "Maplins"], answer: "Maplins", hint: "It was a made-up name, and its entertainers wore yellow coats.", level: "medium" },
+          { q: "In 'Yes Minister', what was the name of the crafty top civil servant?", options: ["Sir Humphrey Appleby", "Captain Mainwaring", "Jim Hacker", "Bernard Woolley"], answer: "Sir Humphrey Appleby", hint: "He was played by Nigel Hawthorne.", level: "medium" },
+          { q: "'Last of the Summer Wine' was filmed in and around which Yorkshire town?", options: ["Hebden Bridge", "Holmfirth", "Haworth", "Harrogate"], answer: "Holmfirth", hint: "It's in the Holme Valley, near Huddersfield.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "In 'Only Fools and Horses', what did Del Boy and Rodney drive?", options: ["A black London taxi", "A blue Mini", "A yellow three-wheeled van", "A red double-decker bus"], answer: "A yellow three-wheeled van", hint: "It said 'Trotters Independent Trading Co' on the side.", level: "easy" },
+          { q: "Which sitcom, set in Barry Island and Billericay, featured Nessa and Smithy?", options: ["Men Behaving Badly", "The Royle Family", "Benidorm", "Gavin & Stacey"], answer: "Gavin & Stacey", hint: "The couple in its title were from Essex and Wales.", level: "medium" },
+        ]
+      },
+      {
+        id: "dancing", title: "Dancing", emoji: "💃",
+        blurb: "Ballroom, ballet and the hokey cokey.",
+        questions: [
+          { q: "Which ballroom dance comes from Argentina?", options: ["The tango", "The foxtrot", "The quickstep", "The waltz"], answer: "The tango", hint: "As the saying goes, it takes two.", level: "easy" },
+          { q: "Which party dance is done in a long line, everyone holding the waist of the person in front?", options: ["The limbo", "The conga", "The twist", "The macarena"], answer: "The conga", hint: "It comes from Cuba, and there's a kick every few steps.", level: "easy" },
+          { q: "In which dance do you 'put your left arm in, your left arm out'?", options: ["The Lambeth Walk", "The conga", "The hokey cokey", "The Birdie Song"], answer: "The hokey cokey", hint: "'Knees bend, arms stretch, ra-ra-ra!'", level: "easy" },
+          { q: "Which lively dance is Brazil famous for at its carnival?", options: ["The tango", "The polka", "The flamenco", "The samba"], answer: "The samba", hint: "Rio's carnival parades are led by schools named after it.", level: "easy" },
+          { q: "Which English folk dancers wear bells on their legs and wave hankies and sticks?", options: ["Morris dancers", "Clog dancers", "Maypole dancers", "Line dancers"], answer: "Morris dancers", hint: "You often see them outside a country pub on May Day.", level: "easy" },
+          { q: "Which 1987 film has the line 'Nobody puts Baby in a corner'?", options: ["Grease", "Dirty Dancing", "Footloose", "Flashdance"], answer: "Dirty Dancing", hint: "Patrick Swayze plays the dance teacher Johnny Castle.", level: "easy" },
+          { q: "Which 1920s dance craze was named after a city in South Carolina?", options: ["The lindy hop", "The jitterbug", "The Charleston", "The twist"], answer: "The Charleston", hint: "Flappers swung their knees in and out while crossing their hands over them.", level: "medium" },
+          { q: "Which ballet has the characters Odette and Odile?", options: ["Sleeping Beauty", "The Nutcracker", "Giselle", "Swan Lake"], answer: "Swan Lake", hint: "The heroine is turned into a beautiful white bird.", level: "medium" },
+          { q: "Which ballroom dance has three beats to the bar, counted 'one, two, three'?", options: ["The waltz", "The cha-cha-cha", "The samba", "The jive"], answer: "The waltz", hint: "Johann Strauss wrote lots of music for it in Vienna.", level: "medium" },
+          { q: "Which Latin dance is based on a Spanish bullfight?", options: ["The mambo", "The paso doble", "The rumba", "The salsa"], answer: "The paso doble", hint: "The man plays the bullfighter, and the woman his swirling cape.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "Which Spanish dance is famous for stamping feet, clapping and swirling dresses?", options: ["The tango", "The Highland fling", "Flamenco", "The polka"], answer: "Flamenco", hint: "It comes from Andalusia, in the south of Spain.", level: "easy" },
+          { q: "Which Irish dance show began as the interval act at the 1994 Eurovision Song Contest?", options: ["Feet of Flames", "Celtic Woman", "Lord of the Dance", "Riverdance"], answer: "Riverdance", hint: "It made stars of Michael Flatley and Jean Butler.", level: "medium" },
+        ]
+      },
+      {
+        id: "pantomime", title: "Pantomime", emoji: "🎭",
+        blurb: "Oh yes it is! Dames, villains and a lot of shouting.",
+        questions: [
+          { q: "At the pantomime, what do the audience shout back when someone on stage says 'Oh no it isn't!'?", options: ["Oh yes it is!", "He's behind you!", "Boo, hiss!", "Hello, Buttons!"], answer: "Oh yes it is!", hint: "It's the exact opposite of what was said on stage.", level: "easy" },
+          { q: "Who traditionally plays the pantomime dame?", options: ["A child", "A man", "A puppet", "A woman"], answer: "A man", hint: "It's the opposite of the principal boy.", level: "easy" },
+          { q: "In 'Dick Whittington', which animal goes everywhere with Dick?", options: ["A horse", "A dog", "A cat", "A goose"], answer: "A cat", hint: "It's very good at catching the rats in London.", level: "easy" },
+          { q: "Which pantomime features Widow Twankey and her son Wishee Washee?", options: ["Cinderella", "Mother Goose", "Puss in Boots", "Aladdin"], answer: "Aladdin", hint: "There's a magic lamp and a genie.", level: "easy" },
+          { q: "In 'Jack and the Beanstalk', what does Jack swap for the magic beans?", options: ["A cow", "A horse", "A pig", "A goat"], answer: "A cow", hint: "In the pantomime she's often called Daisy, and she gives milk.", level: "easy" },
+          { q: "In 'Cinderella', what does the Fairy Godmother turn into a coach?", options: ["A marrow", "A pumpkin", "A watermelon", "A turnip"], answer: "A pumpkin", hint: "It's a big, round, orange vegetable.", level: "easy" },
+          { q: "In 'Cinderella', what is the name of the cheerful servant who loves Cinderella?", options: ["Wishee Washee", "Dandini", "Buttons", "Baron Hardup"], answer: "Buttons", hint: "His name comes from the shiny fasteners on his page boy's uniform.", level: "medium" },
+          { q: "What is the name of the wicked sorcerer in the pantomime 'Aladdin'?", options: ["King Rat", "Fleshcreep", "Captain Hook", "Abanazar"], answer: "Abanazar", hint: "He wants the magic lamp for himself.", level: "medium" },
+          { q: "In 'Puss in Boots', the clever cat passes off his poor master as which made-up nobleman?", options: ["The Marquis of Carabas", "Lord Fauntleroy", "The Duke of Dandini", "The Earl of Hardup"], answer: "The Marquis of Carabas", hint: "The tale comes from France, so it's a French title.", level: "medium" },
+          { q: "In which pantomime is the villain King Rat?", options: ["Snow White", "Dick Whittington", "Aladdin", "Peter Pan"], answer: "Dick Whittington", hint: "Its hero becomes Lord Mayor of London.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "In the pantomime 'Mother Goose', what does the goose lay?", options: ["Chocolate eggs", "Diamond eggs", "Golden eggs", "Silver eggs"], answer: "Golden eggs", hint: "They make her owner very rich.", level: "easy" },
+          { q: "In 'Aladdin', where is the magic lamp hidden?", options: ["At the bottom of a well", "In a laundry", "In a palace", "In a cave"], answer: "In a cave", hint: "The wicked sorcerer can't go in himself, so he sends Aladdin.", level: "medium" },
+        ]
+      },
+    ]
+  },
+  "2026-12-21": {
+    topics: [
+      {
+        id: "christmas-songs", title: "Christmas Songs", emoji: "🎶",
+        blurb: "Sleigh bells, Christmas number ones and festive favourites.",
+        questions: [
+          { q: "Which duo released 'Last Christmas' in 1984?", options: ["Wham!", "Erasure", "Eurythmics", "Pet Shop Boys"], answer: "Wham!", hint: "It was kept off the 1984 number one spot by the Band Aid single.", level: "easy" },
+          { q: "Who sang 'All I Want for Christmas Is You'?", options: ["Celine Dion", "Mariah Carey", "Kylie Minogue", "Whitney Houston"], answer: "Mariah Carey", hint: "She's an American singer famous for her very high notes.", level: "easy" },
+          { q: "Which Welsh singer had the 1985 Christmas number one with 'Merry Christmas Everyone'?", options: ["Aled Jones", "Tom Jones", "Shakin' Stevens", "Bonnie Tyler"], answer: "Shakin' Stevens", hint: "His earlier hits included 'This Ole House' and 'Green Door'.", level: "easy" },
+          { q: "Who sang 'Mistletoe and Wine', the Christmas number one of 1988?", options: ["Elton John", "Chris Rea", "Rod Stewart", "Cliff Richard"], answer: "Cliff Richard", hint: "He started out in the 1950s, singing with the Shadows.", level: "easy" },
+          { q: "Which Chris Rea song is about the long journey home at Christmas?", options: ["Driving Home for Christmas", "Fairytale of New York", "Walking in the Air", "Stop the Cavalry"], answer: "Driving Home for Christmas", hint: "He's said he wrote it while stuck in traffic.", level: "easy" },
+          { q: "Which former Beatle released 'Wonderful Christmastime' in 1979?", options: ["George Harrison", "Paul McCartney", "Ringo Starr", "John Lennon"], answer: "Paul McCartney", hint: "He also wrote 'Mull of Kintyre'.", level: "easy" },
+          { q: "Which band sang 'Fairytale of New York' with Kirsty MacColl?", options: ["The Waterboys", "U2", "The Pogues", "The Dubliners"], answer: "The Pogues", hint: "Their singer was Shane MacGowan.", level: "medium" },
+          { q: "Which song from the cartoon 'The Snowman' was a hit for the choirboy Aled Jones in 1985?", options: ["Winter Wonderland", "Frosty the Snowman", "Let It Snow", "Walking in the Air"], answer: "Walking in the Air", hint: "It's sung as the boy and the Snowman fly over the snowy countryside.", level: "medium" },
+          { q: "Which pink and yellow spotty character had the Christmas number one in 1993?", options: ["Mr Blobby", "Postman Pat", "Bob the Builder", "Pudsey Bear"], answer: "Mr Blobby", hint: "He was the clumsy star of Noel Edmonds's 'House Party'.", level: "medium" },
+          { q: "Which East 17 song was the Christmas number one in 1994?", options: ["Babe", "Stay Another Day", "Back for Good", "Love Me for a Reason"], answer: "Stay Another Day", hint: "In its video the band wore white coats with furry hoods.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "Which band had a 1973 Christmas hit with 'I Wish It Could Be Christmas Everyday'?", options: ["The Sweet", "Slade", "Wizzard", "Mud"], answer: "Wizzard", hint: "It was led by Roy Wood, who had been in The Move.", level: "easy" },
+          { q: "Which Greg Lake song, a 1975 Christmas hit, begins 'They said there'll be snow at Christmas'?", options: ["Lonely This Christmas", "Stop the Cavalry", "Happy Xmas (War Is Over)", "I Believe in Father Christmas"], answer: "I Believe in Father Christmas", hint: "Its title is about believing in the man who brings the presents.", level: "medium" },
+        ]
+      },
+      {
+        id: "christmas-films", title: "Christmas Films", emoji: "⛄",
+        blurb: "Festive films to watch with a mince pie.",
+        questions: [
+          { q: "In 'Elf', what is the name of Will Ferrell's character?", options: ["Buddy", "Jack", "Kevin", "Scott"], answer: "Buddy", hint: "It's also a friendly word for a pal.", level: "easy" },
+          { q: "Which film features George Bailey and the town of Bedford Falls?", options: ["The Bishop's Wife", "It's a Wonderful Life", "Miracle on 34th Street", "White Christmas"], answer: "It's a Wonderful Life", hint: "An angel called Clarence earns his wings.", level: "easy" },
+          { q: "In 'The Muppet Christmas Carol', which Muppet plays Bob Cratchit?", options: ["Gonzo", "Miss Piggy", "Kermit the Frog", "Fozzie Bear"], answer: "Kermit the Frog", hint: "He's green.", level: "easy" },
+          { q: "Which actor played the Prime Minister in 'Love Actually'?", options: ["Alan Rickman", "Liam Neeson", "Colin Firth", "Hugh Grant"], answer: "Hugh Grant", hint: "He also starred in 'Four Weddings and a Funeral' and 'Notting Hill'.", level: "easy" },
+          { q: "In 'The Polar Express', where is the magical train going?", options: ["The North Pole", "Lapland", "The South Pole", "Greenland"], answer: "The North Pole", hint: "The train heads for the very top of the world.", level: "easy" },
+          { q: "In the 1947 film 'Miracle on 34th Street', at which New York department store does Kris Kringle work?", options: ["Harrods", "Macy's", "Selfridges", "Bloomingdale's"], answer: "Macy's", hint: "It's famous for its Thanksgiving Day Parade.", level: "easy" },
+          { q: "Who wrote and illustrated the book 'The Snowman'?", options: ["Judith Kerr", "Quentin Blake", "Raymond Briggs", "Roald Dahl"], answer: "Raymond Briggs", hint: "He also created 'Fungus the Bogeyman' and 'Father Christmas'.", level: "medium" },
+          { q: "In 'Die Hard', John McClane takes on robbers at a Christmas party in which building?", options: ["Trump Tower", "The Empire State Building", "Sears Tower", "Nakatomi Plaza"], answer: "Nakatomi Plaza", hint: "It's the office tower of a Japanese company in Los Angeles.", level: "medium" },
+          { q: "In 'Home Alone', which city is the McCallister family flying to when they leave Kevin behind?", options: ["Paris", "London", "Rome", "New York"], answer: "Paris", hint: "Think of the Eiffel Tower.", level: "medium" },
+          { q: "Which actor plays the man who becomes Father Christmas in 'The Santa Clause' (1994)?", options: ["Robin Williams", "Tim Allen", "Steve Martin", "Chevy Chase"], answer: "Tim Allen", hint: "He's also the voice of Buzz Lightyear in 'Toy Story'.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "In the song and the cartoon, what brings Frosty the Snowman to life?", options: ["A carrot nose", "A broomstick", "A magic hat", "A magic scarf"], answer: "A magic hat", hint: "There must have been some magic in that old silk...", level: "easy" },
+          { q: "Which comedian plays a modern-day Scrooge, a TV boss, in the 1988 film 'Scrooged'?", options: ["Steve Martin", "Dan Aykroyd", "John Candy", "Bill Murray"], answer: "Bill Murray", hint: "He also starred in 'Ghostbusters' and 'Groundhog Day'.", level: "medium" },
+        ]
+      },
+      {
+        id: "sweets", title: "Sweets and Chocolate", emoji: "🍫",
+        blurb: "Selection boxes, pick 'n' mix and old favourites.",
+        questions: [
+          { q: "What was the chocolate bar Snickers called in the UK until 1990?", options: ["Marathon", "Picnic", "Lion", "Topic"], answer: "Marathon", hint: "It shared its name with a 26.2-mile race.", level: "easy" },
+          { q: "Which sweets were called Opal Fruits until 1998?", options: ["Chewits", "Starburst", "Skittles", "Fruit Pastilles"], answer: "Starburst", hint: "They were 'made to make your mouth water'.", level: "easy" },
+          { q: "Which tin of Christmas chocolates includes the Green Triangle and the Purple One?", options: ["Celebrations", "Heroes", "Quality Street", "Roses"], answer: "Quality Street", hint: "It was first made in Halifax in 1936.", level: "easy" },
+          { q: "Which chocolate is shaped like a fruit, and you 'tap it and unwrap it'?", options: ["After Eight", "Toblerone", "Ferrero Rocher", "Terry's Chocolate Orange"], answer: "Terry's Chocolate Orange", hint: "It splits into segments, and the firm behind it was based in York.", level: "easy" },
+          { q: "Which chocolate bar, first made in Bern in 1908, is famous for its triangular shape?", options: ["Toblerone", "Lindt", "Milka", "Kinder"], answer: "Toblerone", hint: "It comes in a long box with peaks like little mountains.", level: "easy" },
+          { q: "Which white mints are famous as 'the mint with the hole'?", options: ["Softmints", "Polo", "Tic Tac", "Murray Mints"], answer: "Polo", hint: "They're little white rings, sold in a paper tube.", level: "easy" },
+          { q: "In which English city were Cadbury's chocolates first made, with its Bournville factory opening in 1879?", options: ["York", "Bristol", "Birmingham", "Manchester"], answer: "Birmingham", hint: "It's the city at the heart of the West Midlands.", level: "medium" },
+          { q: "Which York chocolate maker created the KitKat and the Aero?", options: ["Fry's", "Terry's", "Cadbury", "Rowntree's"], answer: "Rowntree's", hint: "The same firm also made Fruit Pastilles and Fruit Gums.", level: "medium" },
+          { q: "Which Bristol firm made the first chocolate bar for eating, in 1847?", options: ["Fry's", "Cadbury", "Rowntree's", "Thorntons"], answer: "Fry's", hint: "It's famous for its Chocolate Cream and Turkish Delight bars.", level: "medium" },
+          { q: "Which chocolate bar's adverts promised to help you 'get that Friday feeling'?", options: ["Double Decker", "Crunchie", "Wispa", "Twirl"], answer: "Crunchie", hint: "It has a golden honeycomb centre.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "Which sweets are shaped like little babies?", options: ["Midget Gems", "Dolly Mixtures", "Jelly Babies", "Wine Gums"], answer: "Jelly Babies", hint: "Tom Baker's Doctor Who loved offering them to people.", level: "easy" },
+          { q: "Bertie Bassett, the little man made of sweets, is the mascot for which sweets?", options: ["Wine Gums", "Pontefract Cakes", "Black Jacks", "Liquorice Allsorts"], answer: "Liquorice Allsorts", hint: "They're a colourful mix of coconut, fondant and black chewy layers.", level: "medium" },
+        ]
+      },
+    ]
+  },
+  "2026-12-28": {
+    topics: [
+      {
+        id: "games-toys", title: "Board Games and Toys", emoji: "♟️",
+        blurb: "Rainy-day favourites, from Monopoly to Operation.",
+        questions: [
+          { q: "Which board game has counters that jump over each other, and get 'crowned' when they reach the far side?", options: ["Draughts", "Chess", "Backgammon", "Ludo"], answer: "Draughts", hint: "Americans call it 'checkers'.", level: "easy" },
+          { q: "In the game Cluedo, what colour is Colonel Mustard?", options: ["Blue", "Yellow", "Red", "Green"], answer: "Yellow", hint: "Think of what you'd squeeze on a hot dog.", level: "easy" },
+          { q: "In Scrabble, how many letter tiles does each player keep on their rack?", options: ["Five", "Six", "Seven", "Ten"], answer: "Seven", hint: "Using all of them in one go earns a 50-point bonus.", level: "easy" },
+          { q: "Which toy bricks from Denmark take their name from the Danish for 'play well'?", options: ["Meccano", "Stickle Bricks", "K'Nex", "Lego"], answer: "Lego", hint: "Treading on one in bare feet really hurts.", level: "easy" },
+          { q: "In which game do you remove bits from 'Cavity Sam' without touching the sides?", options: ["Operation", "Buckaroo", "Twister", "Hungry Hippos"], answer: "Operation", hint: "A buzzer goes off and his red nose lights up if you slip.", level: "easy" },
+          { q: "Which game has you pull wooden blocks out of a tower, one at a time, without it falling?", options: ["KerPlunk", "Jenga", "Mousetrap", "Connect 4"], answer: "Jenga", hint: "Its name comes from a Swahili word meaning 'build'.", level: "easy" },
+          { q: "In Scrabble, how many points is the letter Z worth?", options: ["5", "8", "10", "12"], answer: "10", hint: "Only Q is worth as much.", level: "medium" },
+          { q: "Which British doll was launched in 1963 as a rival to Barbie?", options: ["Polly Pocket", "Cabbage Patch Kid", "Tiny Tears", "Sindy"], answer: "Sindy", hint: "She was 'the doll you love to dress'.", level: "medium" },
+          { q: "In Monopoly, what do you need to throw to get out of jail without paying?", options: ["A double", "An odd number", "A six", "A seven"], answer: "A double", hint: "Throw one three times in a row and you're sent to jail in the first place.", level: "medium" },
+          { q: "In Trivial Pursuit, what do you collect to fill up your round playing piece?", options: ["Counters", "Wedges", "Cards", "Coins"], answer: "Wedges", hint: "Lots of people call them 'cheeses'.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "Which colourful puzzle cube was invented in 1974?", options: ["Magic Square", "Etch A Sketch", "Rubik's Cube", "Tangram"], answer: "Rubik's Cube", hint: "It's named after its Hungarian inventor.", level: "easy" },
+          { q: "Which Cluedo suspect is a vicar in the British version of the game?", options: ["Mrs Peacock", "Professor Plum", "Colonel Mustard", "Reverend Green"], answer: "Reverend Green", hint: "His surname is also the colour of grass.", level: "medium" },
+        ]
+      },
+      {
+        id: "game-shows", title: "TV Game Shows", emoji: "❓",
+        blurb: "Come on down! Catchphrases and big prizes.",
+        questions: [
+          { q: "On which game show did the host say 'Our survey said...'?", options: ["Family Fortunes", "Blankety Blank", "Catchphrase", "Bullseye"], answer: "Family Fortunes", hint: "Two families tried to guess the most popular answers.", level: "easy" },
+          { q: "On which game show were contestants told to 'Come on down!'?", options: ["Play Your Cards Right", "The Price Is Right", "Deal or No Deal", "Bullseye"], answer: "The Price Is Right", hint: "Contestants had to guess what the prizes cost.", level: "easy" },
+          { q: "In 'Who Wants to Be a Millionaire?', which lifeline let you ring someone for help?", options: ["50:50", "Ask the Host", "Phone a Friend", "Ask the Audience"], answer: "Phone a Friend", hint: "You had 30 seconds on the telephone.", level: "easy" },
+          { q: "Which darts game show had a cartoon bull called Bully as its mascot?", options: ["Blankety Blank", "The Golden Shot", "Big Break", "Bullseye"], answer: "Bullseye", hint: "Its host, Jim Bowen, said 'Super, smashing, great!'", level: "easy" },
+          { q: "Which game show asked contestants to 'say what you see'?", options: ["Catchphrase", "Pointless", "Blockbusters", "Countdown"], answer: "Catchphrase", hint: "Its little gold robot was called Mr Chips.", level: "easy" },
+          { q: "Who was the first host of 'The Weakest Link', famous for telling players 'You are the weakest link, goodbye!'?", options: ["Sue Perkins", "Anne Robinson", "Esther Rantzen", "Davina McCall"], answer: "Anne Robinson", hint: "She was known for giving a little wink at the end of each show.", level: "easy" },
+          { q: "Which entertainer's catchphrase was 'Nice to see you, to see you nice!'?", options: ["Les Dennis", "Larry Grayson", "Bruce Forsyth", "Bob Monkhouse"], answer: "Bruce Forsyth", hint: "He hosted 'The Generation Game' and 'Play Your Cards Right'.", level: "medium" },
+          { q: "Which quiz show has teams of students answering a 'starter for ten'?", options: ["Mastermind", "Fifteen to One", "Going for Gold", "University Challenge"], answer: "University Challenge", hint: "Bamber Gascoigne was its first host.", level: "medium" },
+          { q: "On 'Blockbusters', what did contestants famously ask Bob Holness for?", options: ["A letter", "A drink", "A lifeline", "A clue"], answer: "A letter", hint: "The board was made of hexagons, and you had to pick one.", level: "medium" },
+          { q: "Which game show had a mascot called Dusty Bin?", options: ["Wheel of Fortune", "3-2-1", "The Golden Shot", "Bullseye"], answer: "3-2-1", hint: "Ted Rogers hosted it, flicking his fingers as he said its name.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "On 'The Generation Game', what carried the prizes past the winner, who then had to remember them?", options: ["A toy train", "A glass cabinet", "A conveyor belt", "A carousel"], answer: "A conveyor belt", hint: "Viewers at home shouted 'cuddly toy!' at the screen.", level: "easy" },
+          { q: "Which game show had four zones called Aztec, Medieval, Futuristic and Industrial?", options: ["Fort Boyard", "The Krypton Factor", "Knightmare", "The Crystal Maze"], answer: "The Crystal Maze", hint: "Its first host, Richard O'Brien, played the harmonica.", level: "medium" },
+        ]
+      },
+      {
+        id: "seventies", title: "The 1970s", emoji: "🕺",
+        blurb: "Flares, glam rock and Space Hoppers.",
+        questions: [
+          { q: "What happened to Britain's money on 'Decimal Day', 15 February 1971?", options: ["The pound was split into 100 new pence", "The pound was replaced by the euro", "Banknotes were replaced by coins", "The shilling became worth a pound"], answer: "The pound was split into 100 new pence", hint: "Before then, a pound was 240 old pennies.", level: "easy" },
+          { q: "Which bouncy orange toy with two 'horns' to hold on to was a 1970s craze?", options: ["The Pogo Stick", "The Space Hopper", "Clackers", "The Slinky"], answer: "The Space Hopper", hint: "You sat on it and bounced along.", level: "easy" },
+          { q: "Which supersonic passenger plane began carrying passengers in 1976?", options: ["The Jumbo Jet", "The Comet", "Concorde", "The Airbus A380"], answer: "Concorde", hint: "It was built by Britain and France together.", level: "easy" },
+          { q: "Which 1978 film musical starred John Travolta and Olivia Newton-John?", options: ["Saturday Night Fever", "Xanadu", "Fame", "Grease"], answer: "Grease", hint: "It's set at Rydell High School.", level: "easy" },
+          { q: "Which Scottish pop band had fans dressed in tartan in the 1970s?", options: ["The Bay City Rollers", "Slade", "Showaddywaddy", "Mud"], answer: "The Bay City Rollers", hint: "Their hits included 'Bye Bye Baby' and 'Shang-a-Lang'.", level: "easy" },
+          { q: "Which furry TV creatures lived on Wimbledon Common and tidied up people's rubbish?", options: ["The Clangers", "The Wombles", "The Herbs", "The Flumps"], answer: "The Wombles", hint: "They included Orinoco, Tobermory and Great Uncle Bulgaria.", level: "easy" },
+          { q: "In which English seaside town did ABBA win the Eurovision Song Contest in 1974?", options: ["Blackpool", "Bournemouth", "Brighton", "Harrogate"], answer: "Brighton", hint: "It's on the south coast, with a famous pier and a pebbly beach.", level: "medium" },
+          { q: "Which Queen song spent nine weeks at number one in 1975 and 1976?", options: ["Don't Stop Me Now", "We Will Rock You", "Killer Queen", "Bohemian Rhapsody"], answer: "Bohemian Rhapsody", hint: "It asks 'Is this the real life? Is this just fantasy?'", level: "medium" },
+          { q: "Why did Britain go on to a 'three-day week' in early 1974?", options: ["To save electricity during a miners' dispute", "Because of a flu epidemic", "Because of heavy snow", "To save petrol during a war"], answer: "To save electricity during a miners' dispute", hint: "Coal was running short at the power stations.", level: "medium" },
+          { q: "Which year's long, hot summer led to a drought, and a 'Minister for Drought'?", options: ["1972", "1976", "1979", "1970"], answer: "1976", hint: "Denis Howell was given the job, and soon afterwards it poured with rain.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "What did Britain celebrate with street parties in June 1977?", options: ["The Coronation", "The end of rationing", "The Queen's Silver Jubilee", "A royal wedding"], answer: "The Queen's Silver Jubilee", hint: "It marked 25 years on the throne.", level: "easy" },
+          { q: "Which glam rock band, led by Marc Bolan, had hits with 'Get It On' and 'Metal Guru'?", options: ["Roxy Music", "Sweet", "Slade", "T. Rex"], answer: "T. Rex", hint: "It's named after a fearsome dinosaur.", level: "medium" },
+        ]
+      },
+    ]
+  },
+  "2027-01-04": {
+    topics: [
+      {
+        id: "gardening", title: "Gardening", emoji: "🌷",
+        blurb: "Bulbs, borders and things that munch in the night.",
+        questions: [
+          { q: "Which slimy garden pest leaves a silvery trail behind it?", options: ["A slug", "A worm", "A beetle", "A woodlouse"], answer: "A slug", hint: "It's like a snail without its shell.", level: "easy" },
+          { q: "Which famous flower show is held each May in the grounds of the Royal Hospital in London?", options: ["The Hampton Court Garden Festival", "The Chelsea Flower Show", "The Harrogate Flower Show", "The Southport Flower Show"], answer: "The Chelsea Flower Show", hint: "The Royal Hospital is home to the scarlet-coated Pensioners.", level: "easy" },
+          { q: "What do gardeners call snipping off faded flowers so that the plant makes more?", options: ["Pruning", "Pricking out", "Deadheading", "Mulching"], answer: "Deadheading", hint: "It's often done to roses and sweet peas all through the summer.", level: "easy" },
+          { q: "Which world-famous botanic gardens in south-west London have a Palm House and a Great Pagoda?", options: ["Wisley", "Hyde Park", "Sissinghurst", "Kew Gardens"], answer: "Kew Gardens", hint: "They're near Richmond, beside the Thames.", level: "easy" },
+          { q: "Which Cornish attraction has giant bubble-like 'biomes' full of plants?", options: ["The Eden Project", "Trebah Garden", "St Michael's Mount", "The Lost Gardens of Heligan"], answer: "The Eden Project", hint: "It was built in an old clay pit near St Austell.", level: "easy" },
+          { q: "Which gardener presented 'Ground Force' with Charlie Dimmock and Tommy Walsh?", options: ["Geoff Hamilton", "Alan Titchmarsh", "Percy Thrower", "Monty Don"], answer: "Alan Titchmarsh", hint: "He also presented 'Gardeners' World' in the 1990s and writes novels.", level: "easy" },
+          { q: "What do we call a plant that grows leaves in its first year, then flowers and dies in its second?", options: ["An evergreen", "An annual", "A biennial", "A perennial"], answer: "A biennial", hint: "Foxgloves and wallflowers are often grown this way.", level: "medium" },
+          { q: "Which garden designer, nicknamed 'Capability', landscaped the park at Blenheim Palace?", options: ["Gertrude Jekyll", "Humphry Repton", "Joseph Paxton", "Lancelot Brown"], answer: "Lancelot Brown", hint: "He got his nickname by telling owners their land had 'capability'.", level: "medium" },
+          { q: "What do gardeners call letting seed potatoes sprout before planting them?", options: ["Chitting", "Hardening off", "Earthing up", "Pricking out"], answer: "Chitting", hint: "You stand them in egg boxes on a cool, light windowsill.", level: "medium" },
+          { q: "Which crop is famously grown in the dark in Yorkshire's 'Triangle', between Wakefield, Morley and Rothwell?", options: ["Celery", "Rhubarb", "Chicory", "Asparagus"], answer: "Rhubarb", hint: "Its pink stalks make a lovely crumble.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "Which garden tool has a long handle and a row of metal teeth for gathering leaves?", options: ["A hoe", "A spade", "A rake", "A trowel"], answer: "A rake", hint: "Step on its teeth and the handle might hit you on the nose!", level: "easy" },
+          { q: "What is a dibber used for in the garden?", options: ["Trimming hedges", "Testing the soil", "Catching slugs", "Making holes for seeds and seedlings"], answer: "Making holes for seeds and seedlings", hint: "It's a short, pointed stick, often made of wood.", level: "medium" },
+        ]
+      },
+      {
+        id: "musicals", title: "Musicals", emoji: "🎼",
+        blurb: "Show tunes from the West End and the big screen.",
+        questions: [
+          { q: "Which musical, full of ABBA songs, is set on a Greek island?", options: ["Mamma Mia!", "Chess", "Evita", "Hair"], answer: "Mamma Mia!", hint: "It shares its name with an ABBA hit from 1975.", level: "easy" },
+          { q: "In which Andrew Lloyd Webber musical do the actors race around on roller skates, playing trains?", options: ["Cats", "Starlight Express", "Evita", "Aspects of Love"], answer: "Starlight Express", hint: "The steam engine Rusty is the hero.", level: "easy" },
+          { q: "Which musical, based on a Charles Dickens story, features the song 'Food, Glorious Food'?", options: ["Annie", "Bugsy Malone", "Oliver!", "Scrooge"], answer: "Oliver!", hint: "A hungry orphan dares to ask for more.", level: "easy" },
+          { q: "In 'The Phantom of the Opera', what does the Phantom wear over his face?", options: ["A hood", "A veil", "A bandage", "A mask"], answer: "A mask", hint: "It covers half of his face.", level: "easy" },
+          { q: "Which musical features 'I Dreamed a Dream', which Susan Boyle sang on 'Britain's Got Talent' in 2009?", options: ["Les Misérables", "The Phantom of the Opera", "Chess", "Miss Saigon"], answer: "Les Misérables", hint: "It's set in France, and Fantine sings it.", level: "easy" },
+          { q: "In 'Joseph and the Amazing Technicolor Dreamcoat', what does Jacob give his favourite son?", options: ["A silver cup", "A coat of many colours", "A magic ring", "A golden crown"], answer: "A coat of many colours", hint: "It's in the show's title.", level: "easy" },
+          { q: "Which musical features the song 'Don't Cry for Me Argentina'?", options: ["Aspects of Love", "Sunset Boulevard", "Evita", "Chess"], answer: "Evita", hint: "It tells the life story of Argentina's First Lady, Eva Perón.", level: "medium" },
+          { q: "Which musical features the songs 'All That Jazz' and 'Razzle Dazzle'?", options: ["Cabaret", "Sweet Charity", "A Chorus Line", "Chicago"], answer: "Chicago", hint: "Roxie Hart and Velma Kelly are both on trial for murder.", level: "medium" },
+          { q: "Which Willy Russell musical is about twins separated at birth and raised in Liverpool?", options: ["Blood Brothers", "Fame", "Our House", "Billy Elliot"], answer: "Blood Brothers", hint: "It ends with the song 'Tell Me It's Not True'.", level: "medium" },
+          { q: "In 'Wicked', what is the name of the green-skinned witch?", options: ["Dorothy", "Elphaba", "Glinda", "Nessarose"], answer: "Elphaba", hint: "Her name comes from the initials of the 'Oz' author L. Frank Baum.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "Which musical features an orphan who sings 'Tomorrow' and has a dog called Sandy?", options: ["Gypsy", "Hello, Dolly!", "Annie", "Matilda"], answer: "Annie", hint: "She's taken in by the very rich Daddy Warbucks.", level: "easy" },
+          { q: "Who wrote the music for 'Billy Elliot the Musical'?", options: ["Tim Rice", "Gary Barlow", "Andrew Lloyd Webber", "Elton John"], answer: "Elton John", hint: "He also wrote the songs for the film 'The Lion King' with Tim Rice.", level: "medium" },
+        ]
+      },
+      {
+        id: "dogs", title: "Dogs", emoji: "🐕",
+        blurb: "Famous dogs, favourite breeds and the odd sausage dog.",
+        questions: [
+          { q: "What breed of dog is Scooby-Doo?", options: ["A Great Dane", "A Labrador", "A bloodhound", "A boxer"], answer: "A Great Dane", hint: "It's one of the tallest breeds of all.", level: "easy" },
+          { q: "Which breed of dog is often called a 'sausage dog'?", options: ["The beagle", "The dachshund", "The corgi", "The basset hound"], answer: "The dachshund", hint: "It comes from Germany, where it was bred to hunt badgers.", level: "easy" },
+          { q: "Which big mountain-rescue dog is often pictured with a little barrel round its neck?", options: ["The Bernese mountain dog", "The Newfoundland", "The Saint Bernard", "The husky"], answer: "The Saint Bernard", hint: "It's named after a monastery high in the Swiss Alps.", level: "easy" },
+          { q: "What is the name of the famous dog show held each year by the Kennel Club, with a 'Best in Show' prize?", options: ["The Great Dog Show", "The Westminster Show", "Discover Dogs", "Crufts"], answer: "Crufts", hint: "It's named after Charles, the dog-biscuit salesman who started it in 1891.", level: "easy" },
+          { q: "What breed of dog is Snoopy, in the 'Peanuts' cartoons?", options: ["A beagle", "A terrier", "A poodle", "A spaniel"], answer: "A beagle", hint: "It's a hound bred for hunting hares.", level: "easy" },
+          { q: "What breed of dog was the puppy in the Andrex toilet roll adverts?", options: ["A poodle", "A Labrador", "A Dalmatian", "A spaniel"], answer: "A Labrador", hint: "When grown up, these golden dogs often become guide dogs.", level: "easy" },
+          { q: "Which breed of dog has a blue-black tongue?", options: ["The pug", "The husky", "The Chow Chow", "The poodle"], answer: "The Chow Chow", hint: "It's a fluffy, lion-like dog from China.", level: "medium" },
+          { q: "What breed was Greyfriars Bobby, the loyal little dog of Edinburgh?", options: ["A West Highland terrier", "A Cairn terrier", "A Scottish terrier", "A Skye terrier"], answer: "A Skye terrier", hint: "The breed is named after a Scottish island.", level: "medium" },
+          { q: "Which tiny dog breed is named after a state in Mexico?", options: ["The Chihuahua", "The Pomeranian", "The Pekingese", "The Yorkshire terrier"], answer: "The Chihuahua", hint: "It's usually said to be the smallest breed in the world.", level: "medium" },
+          { q: "Which breed of dog is usually seen at sheepdog trials, like those on 'One Man and His Dog'?", options: ["The Welsh corgi", "The Border collie", "The German shepherd", "The Old English sheepdog"], answer: "The Border collie", hint: "It's a black-and-white working dog from the hills between England and Scotland.", level: "medium" },
+        ],
+        // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
+        spares: [
+          { q: "Which spotty breed of dog stars in a Disney film with Pongo and Perdita?", options: ["The beagle", "The bull terrier", "The Dalmatian", "The pointer"], answer: "The Dalmatian", hint: "There are 101 of them in the title.", level: "easy" },
+          { q: "Which short-legged breed of dog was Queen Elizabeth II famous for keeping?", options: ["The Jack Russell", "The basset hound", "The dachshund", "The corgi"], answer: "The corgi", hint: "The breed comes from Wales and was first used to herd cattle.", level: "medium" },
+        ]
+      },
+    ]
+  },
 };
