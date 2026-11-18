@@ -92,7 +92,7 @@ var CONFIG = {
   var weeklyState = null, weeklyTopic = null, weeklySlot = 0, wCorrect = 0, wWrong = 0, wLevels = null;
   var answered, endReason, doubleArmed = false, usedSpares = null;
   // timer state
-  var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false;
+  var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false, tickSecs = null;
 
   // ---------------------------------------------------------------- helpers
   function fmt(n) { return CONFIG.currency + Number(n).toLocaleString("en-GB"); }
@@ -128,6 +128,81 @@ var CONFIG = {
   }
   function levelByKey(key) {
     for (var i = 0; i < CONFIG.levels.length; i++) if (CONFIG.levels[i].key === key) return CONFIG.levels[i];
+  }
+
+  // ---------------------------------------------------------------- sounds (off unless switched on)
+  // Little tunes made on the fly with the Web Audio API, so there are no sound files to download.
+  // They're off to begin with; the speaker button in the corner switches them on, and this device remembers.
+  var Sound = (function () {
+    var KEY = "melsQuiz.sound";
+    var on = false, ctx = null;
+    try { on = window.localStorage.getItem(KEY) === "on"; } catch (e) { /* ignore */ }
+    function audio() {
+      if (!ctx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        try { ctx = new AC(); } catch (e) { return null; }
+      }
+      // Phones only let a page make sound after a tap, so this is also called from taps to wake it up.
+      if (ctx.state === "suspended") {
+        try { var p = ctx.resume(); if (p && p.catch) p.catch(function () { /* ignore */ }); } catch (e) { /* ignore */ }
+      }
+      return ctx;
+    }
+    // One note: pitch (Hz), when it starts and how long it lasts (seconds), the wave's shape, how loud (0 to 1).
+    function note(c, freq, start, len, type, vol) {
+      var t = c.currentTime + start;
+      var osc = c.createOscillator(), gain = c.createGain();
+      osc.type = type || "triangle";
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(vol || 0.18, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(t);
+      osc.stop(t + len + 0.05);
+    }
+    var F3 = 174.61, A3 = 220, C4 = 261.63, E4 = 329.63, G4 = 392, C5 = 523.25, E5 = 659.25, G5 = 783.99, A5 = 880, B5 = 987.77, C6 = 1046.5;
+    var TUNES = {   // [pitch, start, length, shape, loudness]
+      right:    [[C5, 0, 0.16], [E5, 0.09, 0.16], [G5, 0.18, 0.16], [C6, 0.27, 0.45]],
+      wrong:    [[A3, 0, 0.3, "sine", 0.25], [F3, 0.26, 0.55, "sine", 0.25]],
+      timeUp:   [[E4, 0, 0.22, "square", 0.05], [C4, 0.24, 0.55, "square", 0.05]],
+      tick:     [[1250, 0, 0.05, "sine", 0.07]],
+      lifeline: [[E5, 0, 0.09, "sine", 0.14], [B5, 0.07, 0.16, "sine", 0.14]],
+      phone:    [[A5, 0, 0.06, "sine", 0.09], [C6, 0.07, 0.06, "sine", 0.09], [A5, 0.14, 0.06, "sine", 0.09], [C6, 0.21, 0.06, "sine", 0.09],
+                 [A5, 0.6, 0.06, "sine", 0.09], [C6, 0.67, 0.06, "sine", 0.09], [A5, 0.74, 0.06, "sine", 0.09], [C6, 0.81, 0.06, "sine", 0.09]],
+      double:   [[G4, 0, 0.1, "triangle", 0.2], [G4, 0.13, 0.1, "triangle", 0.2], [C5, 0.26, 0.4, "triangle", 0.2]],
+      big:      [[G4, 0, 0.14], [C5, 0.14, 0.14], [E5, 0.28, 0.14], [G5, 0.42, 0.3], [E5, 0.72, 0.12], [G5, 0.84, 0.55]],
+      end:      [[G5, 0, 0.2], [E5, 0.18, 0.2], [C5, 0.36, 0.5]],
+      best:     [[C5, 0, 0.12], [E5, 0.1, 0.12], [G5, 0.2, 0.12], [C6, 0.3, 0.22], [G5, 0.52, 0.12], [C6, 0.64, 0.6]]
+    };
+    function play(name) {
+      if (!on || !TUNES[name]) return;
+      var c = audio();
+      if (!c) return;
+      try { TUNES[name].forEach(function (n) { note(c, n[0], n[1], n[2], n[3], n[4]); }); } catch (e) { /* ignore */ }
+    }
+    return {
+      isOn: function () { return on; },
+      setOn: function (v) {
+        on = !!v;
+        try { window.localStorage.setItem(KEY, on ? "on" : "off"); } catch (e) { /* ignore */ }
+        play("lifeline");   // a little "ding" so you can hear it's on
+      },
+      play: play,
+      wake: function () { if (on) audio(); }
+    };
+  })();
+
+  function renderSoundButton() {
+    var on = Sound.isOn();
+    var b = $("btn-sound");
+    b.className = "sound-toggle" + (on ? " on" : "");
+    b.querySelector(".st-icon").textContent = on ? "🔊" : "🔇";
+    b.querySelector(".st-text").textContent = on ? "On" : "Off";
+    b.setAttribute("aria-label", "Sound effects: " + (on ? "on" : "off"));
+    b.title = on ? "Sound effects are on. Press to turn them off." : "Sound effects are off. Press to turn them on.";
   }
 
   // ---------------------------------------------------------------- best winnings
@@ -242,6 +317,7 @@ var CONFIG = {
   }
 
   function newGame() {
+    Sound.wake();
     setPlaying(true);
     mode = "endless";
     money = CONFIG.startMoney;
@@ -311,6 +387,7 @@ var CONFIG = {
 
     renderLifelinesLeft();
     show("choose");
+    if (big) Sound.play("big");
     focusQuietly($("choose-title"));
   }
 
@@ -416,6 +493,8 @@ var CONFIG = {
     var low = remainingMs <= 10000 && !paused;
     $("timer-fill").className = paused ? "stopped" : (low ? "low" : "");
     $("timer-seconds").className = "timer-seconds" + (paused ? " stopped" : (low ? " low" : ""));
+    if (running && secs !== tickSecs && secs >= 1 && secs <= 5) Sound.play("tick");   // the last five seconds
+    tickSecs = secs;
     var note = "seconds left";
     if (clockStopped && !askDecBusy) note = "Clock stopped. Take your time!";
     else if (askDecBusy) note = "Asking Dec...";
@@ -491,6 +570,7 @@ var CONFIG = {
     money -= ll.cost;
     usedLifelines[key] = true;
     updateMoney();
+    Sound.play(key === "phoneFriend" ? "phone" : key === "double" ? "double" : "lifeline");
     return true;
   }
 
@@ -711,6 +791,7 @@ var CONFIG = {
 
   // Works out the money (and lives) after an answer or a timeout.
   function settle(right, timedOut) {
+    Sound.play(right ? "right" : timedOut ? "timeUp" : "wrong");
     var fb = $("feedback");
     var oops = timedOut ? "⏰ Time's up!" : "✘ " + pick(CONSOLATIONS);
     var reveal = " The right answer was: " + current.answer + (/[.!?]$/.test(current.answer) ? "" : ".");
@@ -794,6 +875,7 @@ var CONFIG = {
     var best = loadBest();
     var newBest = (best === null || money > best) && money > 0;
     if (newBest) { saveBest(money); best = money; }
+    Sound.play(newBest ? "best" : "end");
     var total = sum(answeredBy), right = sum(correctBy);
     lastRun = {
       runId: runId,
@@ -1592,6 +1674,7 @@ var CONFIG = {
   }
 
   function startWeeklyRun() {
+    Sound.wake();
     var btn = $("btn-ready-start");
     btn.disabled = true;
     btn.textContent = "Starting...";
@@ -1638,6 +1721,7 @@ var CONFIG = {
   function finishWeekly() {
     stopTimer();
     $("end-title").textContent = "Weekly challenge done!";
+    Sound.play(wCorrect === CONFIG.weekly.questions ? "best" : "end");
     $("end-reason").textContent = weeklyTopic.emoji + " " + weeklyTopic.title;
     $("end-won").textContent = "You scored " + fmt(money);
     $("end-summary").textContent = wCorrect + " right, " + wWrong + " wrong or timed out.";
@@ -1689,6 +1773,8 @@ var CONFIG = {
   $("ll-swap").addEventListener("click", useSwap);
   $("ll-double").addEventListener("click", useDouble);
   $("btn-leave-stay").addEventListener("click", closeLeaveDialog);
+  $("btn-sound").addEventListener("click", function () { Sound.setOn(!Sound.isOn()); renderSoundButton(); });
+  renderSoundButton();
   $("btn-leave-go").addEventListener("click", leaveGame);
 
   setupLeaderboardUi();

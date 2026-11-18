@@ -561,3 +561,40 @@ body[data-screen="question"] h2#question-text { margin: 14px 0 16px; }
 .dialog::backdrop { background: rgba(43, 29, 20, 0.55); }
 .dialog h2 { margin: 0 0 10px; }
 .dialog-text { margin: 0 0 4px; font-size: 1.1rem; text-align: center; }
+
+/* ---------- sound effects button (top corner of the card) ---------- */
+.card { position: relative; }
+.sound-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 1.1;
+  color: var(--muted);
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.sound-toggle .st-icon { font-size: 1.35rem; line-height: 1.1; }
+.sound-toggle.on { color: var(--good); }
+.sound-toggle:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+@media (hover: hover) {
+  .sound-toggle:hover { background: #fff1d6; border-color: var(--option-border); }
+}
+@media (max-width: 480px) {
+  .sound-toggle { top: 4px; right: 4px; min-width: 44px; min-height: 44px; }
+  /* on a phone's question screen that corner holds the money, and every bit of room is needed */
+  body[data-screen="question"] .sound-toggle { display: none; }
+}
