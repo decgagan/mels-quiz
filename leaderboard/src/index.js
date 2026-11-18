@@ -5,12 +5,14 @@
  *   POST /scores  -> body { "name": "Dec", "score": 1250 }
  *                    -> 201 { ok, entry: { id, name, score, date, rank }, scores: [...top 10] }
  *
+ * (This is the ORIGINAL leaderboard. The player profiles are in profiles.js.)
  * Nothing is stored except the name, the score and the date. IP addresses are NOT stored.
  */
 
-// ---- Settings (keep MAX_SCORE in step with the game: 10 questions x the biggest prize, £500) ----
-const ALLOWED_ORIGINS = ["https://decgagan.github.io"];   // the live site
-const ALLOW_LOCALHOST = true;                              // http://localhost and http://127.0.0.1 (any port) for testing
+import { originAllowed, corsHeaders, json, fail } from "./util.js";
+import { handleCreate, handleLogin, handleLogout, handleMe, handleDeleteMe } from "./profiles.js";
+
+// ---- Settings for the LEGACY leaderboard (the original 10-question game): 10 questions x the biggest prize, £500 ----
 const MAX_NAME_LENGTH = 20;
 const MAX_SCORE = 5000;                                    // 10 x £500
 const SCORE_STEP = 25;                                     // every score in the game is a multiple of £25
@@ -21,35 +23,6 @@ const DEFAULT_SECONDS_BETWEEN_SUBMITS = 10;                // per IP address; se
 // Remember when each IP last submitted. This lives in the Worker's memory only (nothing is saved),
 // so it's a simple best-effort guard against button-mashing, not a hard guarantee.
 const lastSubmitByIp = new Map();
-
-function originAllowed(origin) {
-  if (!origin) return false;
-  if (ALLOWED_ORIGINS.includes(origin)) return true;
-  return ALLOW_LOCALHOST && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-}
-
-function corsHeaders(request) {
-  const origin = request.headers.get("Origin");
-  const headers = { "Vary": "Origin" };
-  if (originAllowed(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
-    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
-    headers["Access-Control-Allow-Headers"] = "Content-Type";
-    headers["Access-Control-Max-Age"] = "86400";
-  }
-  return headers;
-}
-
-function json(request, data, status = 200, extra = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...corsHeaders(request), ...extra },
-  });
-}
-
-function fail(request, status, message, extra) {
-  return json(request, { ok: false, error: message }, status, extra);
-}
 
 /** Checks a submission. Returns { name, score } or { error }. */
 export function validate(body) {
@@ -140,8 +113,18 @@ export default {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders(request) });
       }
-      if (path === "/scores" && request.method === "GET") return await handleGet(request, env);
-      if (path === "/scores" && request.method === "POST") return await handlePost(request, env);
+      const get = request.method === "GET", post = request.method === "POST";
+
+      // Player profiles
+      if (path === "/profiles" && post) return await handleCreate(request, env);
+      if (path === "/login" && post) return await handleLogin(request, env);
+      if (path === "/logout" && post) return await handleLogout(request, env);
+      if (path === "/me" && get) return await handleMe(request, env);
+      if (path === "/me/delete" && post) return await handleDeleteMe(request, env);
+
+      // The original leaderboard. Kept so the old version of the game keeps working until it is updated.
+      if (path === "/scores" && get) return await handleGet(request, env);
+      if (path === "/scores" && post) return await handlePost(request, env);
       if (path === "/") return json(request, { ok: true, name: "mels-quiz-leaderboard", try: "/scores" });
       return fail(request, 404, "Not found.");
     } catch (err) {

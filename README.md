@@ -62,7 +62,8 @@ var CONFIG = {
   storageKey: "melsQuiz.bestWinnings",
   leaderboardUrl: "",   // the shared leaderboard; empty = switched off and hidden
   maxNameLength: 20,
-  nameStorageKey: "melsQuiz.playerName"
+  nameStorageKey: "melsQuiz.playerName",
+  sessionStorageKey: "melsQuiz.session"   // remembers who is signed in on this device
 };
 ```
 
@@ -78,6 +79,19 @@ When `leaderboardUrl` in `CONFIG` is filled in, players can add their name to a 
 - When `leaderboardUrl` is empty (`""`), all the leaderboard buttons are hidden and the game works exactly as before.
 
 The scores live in a small Cloudflare Worker with a D1 database, in the `leaderboard/` folder. See `leaderboard/README.md` for the exact steps to set it up. Only the name, score and date are stored, there's no swear filter, and the name is only ever shown as plain text.
+
+## Player profiles
+
+When the leaderboard is switched on, players can make a **profile**: a name (1 to 20 characters, nobody else can have the same one, capital letters don't matter) and a 4-number PIN. The device remembers who is signed in, so they only do it once.
+
+- **Create my profile** / **Sign in** are on the start screen. To play on another phone, choose **Sign in** and type the same name and PIN.
+- **Switch player** signs out of this device (handy on a shared phone).
+- **My profile** shows their stats (best score, games played, questions right) and a **Delete my profile** button, which removes the profile and all their scores for good.
+- After 5 wrong PINs in a row the profile is locked for 15 minutes.
+- What's kept on the server: the name, the PIN (only as a salted hash, never the PIN itself), scores and stats. No email address, no IP address. This is written on the sign-up screen too.
+- Playing without a profile still works. You just can't use the leaderboards.
+
+The profile code is in `leaderboard/src/profiles.js`, with the tables in `leaderboard/migrations/0002_profiles.sql`.
 
 ## Files
 

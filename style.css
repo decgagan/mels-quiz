@@ -327,3 +327,60 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 @media (max-width: 480px) {
   .board-row { grid-template-columns: 2rem 1fr auto; gap: 8px; padding: 8px 10px; }
 }
+
+/* ---------- player profiles ---------- */
+.flash { margin: 0 0 14px; padding: 12px 14px; font-size: 1.1rem; font-weight: bold; text-align: center; background: #e8f1ff; color: var(--medium-dark); border: 3px solid var(--medium); border-radius: 14px; }
+
+.player-box { margin: 0 0 18px; padding: 14px; background: #fff8ec; border: 3px solid var(--option-border); border-radius: 14px; }
+.player-line { margin: 0 0 6px; font-size: 1.15rem; text-align: center; }
+.player-stats { margin: 0 0 4px; text-align: center; color: var(--muted); font-size: 0.95rem; }
+.player-stats:empty { display: none; }
+.btn-row { display: flex; gap: 10px; }
+.btn-row .btn { margin-top: 10px; }
+.btn-half { flex: 1; min-width: 0; font-size: 1.05rem; }
+
+.tabs { display: flex; gap: 8px; margin: 0 0 14px; }
+.tab {
+  flex: 1;
+  min-height: 56px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: var(--primary-dark);
+  background: #fff;
+  border: 3px solid var(--option-border);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.tab[aria-selected="true"] { background: var(--primary); color: #fff; border-color: var(--primary-dark); }
+
+.form-card { margin: 0 0 8px; padding: 16px; background: #fff8ec; border: 3px solid var(--option-border); border-radius: 14px; }
+.form-card label { display: block; font-weight: bold; font-size: 1.15rem; margin: 12px 0 8px; }
+.form-card label:first-child { margin-top: 0; }
+.form-card input[type="text"], .form-card input[type="password"] {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 1.3rem;
+  color: var(--text);
+  background: #fff;
+  border: 3px solid var(--option-border);
+  border-radius: 14px;
+}
+.form-card input:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+.form-card label.check { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: normal; }
+.form-card label.check input { width: 26px; height: 26px; flex: none; }
+
+.privacy { margin: 14px 4px 4px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+.big-name { margin: 0 0 14px; text-align: center; font-size: 1.8rem; font-weight: bold; color: var(--primary); overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 8px; }
+.stats > div { padding: 10px 6px; text-align: center; background: var(--option); border: 3px solid var(--option-border); border-radius: 14px; }
+.stats dt { font-size: 0.8rem; color: var(--muted); font-weight: bold; }
+.stats dd { margin: 4px 0 0; font-size: 1.4rem; font-weight: bold; color: var(--good); }
+
+.btn-danger { background: var(--bad); color: #fff; border: 3px solid #6f1010; margin-top: 12px; }
+.btn-danger-outline { background: #fff; color: var(--bad); border: 3px solid var(--bad); margin-top: 14px; }
+.danger-card { margin-top: 14px; background: var(--bad-bg); border-color: var(--bad); }
+.danger-card p { margin: 0 0 8px; }

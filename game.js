@@ -50,14 +50,17 @@ var CONFIG = {
   // While this is empty ("") the leaderboard is switched off and hidden, and the game works as normal.
   leaderboardUrl: "https://mels-quiz-leaderboard.decgagan.workers.dev",
   maxNameLength: 20,             // longest name allowed (the Worker enforces this too)
-  nameStorageKey: "melsQuiz.playerName" // remembers the name she last typed, on this device only
+  nameStorageKey: "melsQuiz.playerName", // remembers the name she last typed, on this device only
+
+  // PLAYER PROFILES (need the leaderboard Worker above). The device remembers who is signed in under this name.
+  sessionStorageKey: "melsQuiz.session"
 };
 
 (function () {
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
-  var screens = { start: $("screen-start"), leaderboard: $("screen-leaderboard"), choose: $("screen-choose"), question: $("screen-question"), end: $("screen-end") };
+  var screens = { start: $("screen-start"), auth: $("screen-auth"), profile: $("screen-profile"), leaderboard: $("screen-leaderboard"), choose: $("screen-choose"), question: $("screen-question"), end: $("screen-end") };
 
   // ---- game state
   var money, asked, pools, usedLifelines, current, currentLevel;
@@ -98,8 +101,12 @@ var CONFIG = {
   }
 
   // ---------------------------------------------------------------- start
-  function showStart() {
+  function showStart(flash) {
     stopTimer();
+    var fl = $("start-flash");
+    fl.hidden = !(typeof flash === "string" && flash);
+    fl.textContent = (typeof flash === "string") ? flash : "";
+    renderPlayerBox();
     var best = loadBest();
     var el = $("best-start");
     el.hidden = (best === null);
@@ -497,30 +504,36 @@ var CONFIG = {
 
   // ---------------------------------------------------------------- shared leaderboard
   // Everything here is switched off when CONFIG.leaderboardUrl is empty.
-  function lbUrl() {
+  function lbBase() {
     var u = String(CONFIG.leaderboardUrl || "").replace(/^\s+|\s+$/g, "");
     if (!u) return "";
-    return u.replace(/\/+$/, "").replace(/\/scores$/, "") + "/scores";
+    return u.replace(/\/+$/, "").replace(/\/scores$/, "");
   }
-  var lbOn = !!lbUrl();
+  function lbUrl() { var b = lbBase(); return b ? b + "/scores" : ""; }
+  var lbOn = !!lbBase();
   var submitted = false, submitting = false;
 
   // Talks to the Worker. Resolves with the parsed JSON, or rejects with an Error that has
   // .status (HTTP status, or 0 for a network problem) and .serverMessage (the Worker's own words).
-  function lbRequest(method, body) {
+  function lbRequest(method, body) { return apiRequest(method, "/scores", body); }
+
+  // path is like "/me". Signed-in players send their token automatically.
+  function apiRequest(method, path, body, noAuth) {
     return new Promise(function (resolve, reject) {
       var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
       var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 10000);
-      var opts = { method: method, cache: "no-store" };
+      var opts = { method: method, cache: "no-store", headers: {} };
       if (ctl) opts.signal = ctl.signal;
-      if (body) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
-      fetch(lbUrl(), opts).then(function (res) {
+      if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+      if (session && !noAuth) opts.headers["Authorization"] = "Bearer " + session.token;
+      fetch(lbBase() + path, opts).then(function (res) {
         clearTimeout(timer);
         return res.json().catch(function () { return null; }).then(function (data) {
           if (res.ok && data) { resolve(data); return; }
           var err = new Error("HTTP " + res.status);
           err.status = res.status;
           err.serverMessage = data && data.error;
+          if (res.status === 401 && session && !noAuth && path !== "/login") signedOutByServer();
           reject(err);
         });
       }).catch(function (e) {
@@ -635,7 +648,9 @@ var CONFIG = {
     $("btn-submit").textContent = "Add me to the leaderboard";
     $("btn-show-board").hidden = false;
     $("btn-show-board").textContent = canSubmit ? "Just show me the leaderboard" : "See the leaderboard";
-    if (canSubmit) $("name-input").value = loadName();
+    // A signed-in player's name comes from their profile, so it can't be changed here.
+    $("name-input").readOnly = !!session;
+    if (canSubmit) $("name-input").value = session ? session.name : loadName();
   }
 
   function cleanName(raw) {
@@ -680,7 +695,7 @@ var CONFIG = {
   function setupLeaderboardUi() {
     if (!lbOn) return;
     $("btn-leaderboard").hidden = false;
-    $("footer-note").textContent = "No sign-ups, no tracking. Your best winnings are saved on this device. If you add your name to the leaderboard, your name and score are shown to everyone who plays.";
+    $("footer-note").textContent = "No email needed and no tracking. Your best winnings are saved on this device. If you make a profile, your name, PIN (scrambled) and scores are kept on the game's server, and your name and scores are shown to everyone who plays.";
     $("name-input").maxLength = CONFIG.maxNameLength;
     $("btn-leaderboard").addEventListener("click", showLeaderboardScreen);
     $("btn-board-back").addEventListener("click", showStart);
@@ -689,6 +704,196 @@ var CONFIG = {
       $("btn-show-board").hidden = true;
       loadBoard($("board-end"));
     });
+  }
+
+  // ---------------------------------------------------------------- player profiles
+  // A profile is a name + 4-digit PIN kept on the Worker. This device remembers who is signed in.
+  var session = loadSession();   // { token, name } or null
+  var me = null;                 // the signed-in player's details from the Worker (stats), or null
+  var authMode = "create";       // "create" or "signin"
+  var afterAuth = null;          // what to do once someone has signed in or created a profile
+  var authBack = null;           // where "Back" goes from the sign-in screen
+
+  function loadSession() {
+    try {
+      var s = JSON.parse(window.localStorage.getItem(CONFIG.sessionStorageKey));
+      if (s && typeof s.token === "string" && typeof s.name === "string") return s;
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+  function saveSession(s) {
+    session = s;
+    try {
+      if (s) window.localStorage.setItem(CONFIG.sessionStorageKey, JSON.stringify(s));
+      else window.localStorage.removeItem(CONFIG.sessionStorageKey);
+    } catch (e) { /* ignore */ }
+  }
+
+  // The Worker says our saved sign-in has stopped working (for example the profile was deleted).
+  function signedOutByServer() {
+    saveSession(null);
+    me = null;
+  }
+
+  function statsLine(p) {
+    if (!p) return "";
+    return "Best " + fmt(p.bestEndless) + " · " + p.gamesPlayed + (p.gamesPlayed === 1 ? " game" : " games") + " · " + p.totalCorrect + " right";
+  }
+
+  function renderPlayerBox() {
+    var box = $("player-box");
+    if (!lbOn) { box.hidden = true; return; }
+    box.hidden = false;
+    $("player-in").hidden = !session;
+    $("player-out").hidden = !!session;
+    if (session) {
+      $("player-name").textContent = session.name;
+      $("player-stats").textContent = statsLine(me);
+    }
+  }
+
+  // Ask the Worker who we are and how we're doing. Fails quietly: the game still works without it.
+  function refreshMe() {
+    if (!lbOn || !session) return Promise.resolve(null);
+    var token = session.token;
+    return apiRequest("GET", "/me").then(function (data) {
+      if (!session || session.token !== token) return null;
+      me = data.profile;
+      if (session.name !== me.name) saveSession({ token: session.token, name: me.name });
+      renderPlayerBox();
+      return me;
+    }).catch(function () {
+      renderPlayerBox();
+      if (!session && !screens.start.hidden) showStart("Please sign in again.");
+      return null;
+    });
+  }
+
+  function showAuth(mode, then, back) {
+    authMode = mode;
+    afterAuth = then || null;
+    authBack = back || showStart;
+    $("auth-name").value = "";
+    $("auth-pin").value = "";
+    $("auth-pin2").value = "";
+    $("auth-show").checked = false;
+    setPinVisible(false);
+    $("auth-msg").textContent = "";
+    renderAuthMode();
+    show("auth");
+    $("auth-title").focus();
+  }
+
+  function renderAuthMode() {
+    var create = (authMode === "create");
+    $("auth-title").textContent = create ? "Create your profile" : "Sign in";
+    $("tab-create").setAttribute("aria-selected", create ? "true" : "false");
+    $("tab-signin").setAttribute("aria-selected", create ? "false" : "true");
+    $("auth-pin2-wrap").hidden = !create;
+    $("btn-auth").textContent = create ? "Create my profile" : "Sign in";
+    $("auth-pin").autocomplete = "off";
+    $("auth-msg").textContent = "";
+  }
+
+  function setPinVisible(on) {
+    $("auth-pin").type = on ? "text" : "password";
+    $("auth-pin2").type = on ? "text" : "password";
+  }
+
+  var authBusy = false;
+  function submitAuth(ev) {
+    ev.preventDefault();
+    if (authBusy) return;
+    var msg = $("auth-msg");
+    var name = String($("auth-name").value).replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+    var pin = $("auth-pin").value;
+    var len = Array.from(name).length;
+    if (len < 1) { msg.textContent = "Please type your name first."; $("auth-name").focus(); return; }
+    if (len > CONFIG.maxNameLength) { msg.textContent = "Names can be up to " + CONFIG.maxNameLength + " letters long. Could you shorten it?"; $("auth-name").focus(); return; }
+    if (!/^[0-9]{4}$/.test(pin)) { msg.textContent = "Your PIN must be 4 numbers, like 1234."; $("auth-pin").focus(); return; }
+    if (authMode === "create" && $("auth-pin2").value !== pin) { msg.textContent = "The two PINs don't match. Please type them again."; $("auth-pin2").focus(); return; }
+
+    authBusy = true;
+    var btn = $("btn-auth");
+    btn.disabled = true;
+    btn.textContent = authMode === "create" ? "Creating..." : "Signing in...";
+    msg.textContent = "";
+    apiRequest("POST", authMode === "create" ? "/profiles" : "/login", { name: name, pin: pin }, true).then(function (data) {
+      authBusy = false;
+      btn.disabled = false;
+      saveSession({ token: data.token, name: data.profile.name });
+      me = data.profile;
+      var go = afterAuth;
+      afterAuth = null;
+      if (go) go(); else showStart((authMode === "create" ? "Welcome, " : "Welcome back, ") + data.profile.name + "!");
+    }).catch(function (err) {
+      authBusy = false;
+      btn.disabled = false;
+      renderAuthMode();
+      msg.textContent = err.serverMessage || (err.status === 0
+        ? "Couldn't reach the game's server just now. Please check your connection and try again."
+        : "That didn't work. Please try again in a little while.");
+    });
+  }
+
+  function switchPlayer() {
+    if (session) apiRequest("POST", "/logout", {}).catch(function () { /* ignore */ });
+    saveSession(null);
+    me = null;
+    showAuth("signin", null, showStart);
+  }
+
+  function showProfile() {
+    if (!session) { showAuth("signin"); return; }
+    $("profile-name").textContent = session.name;
+    $("delete-confirm").hidden = true;
+    $("btn-delete").hidden = false;
+    $("delete-msg").textContent = "";
+    renderStats();
+    show("profile");
+    $("profile-title").focus();
+    refreshMe().then(function () { if (!screens.profile.hidden) renderStats(); });
+  }
+  function renderStats() {
+    $("stat-best").textContent = me ? fmt(me.bestEndless) : "-";
+    $("stat-games").textContent = me ? String(me.gamesPlayed) : "-";
+    $("stat-correct").textContent = me ? String(me.totalCorrect) : "-";
+  }
+
+  function deleteProfile() {
+    var msg = $("delete-msg");
+    var btn = $("btn-delete-yes");
+    btn.disabled = true;
+    msg.textContent = "";
+    apiRequest("POST", "/me/delete", {}).then(function () {
+      btn.disabled = false;
+      saveSession(null);
+      me = null;
+      showStart("Your profile and scores have been deleted.");
+    }).catch(function (err) {
+      btn.disabled = false;
+      if (!session) { showStart("Please sign in again."); return; }
+      msg.textContent = err.serverMessage || "Couldn't delete it just now. Please check your connection and try again.";
+    });
+  }
+
+  function setupProfileUi() {
+    if (!lbOn) return;
+    $("btn-create").addEventListener("click", function () { showAuth("create"); });
+    $("btn-signin").addEventListener("click", function () { showAuth("signin"); });
+    $("btn-profile").addEventListener("click", showProfile);
+    $("btn-switch").addEventListener("click", switchPlayer);
+    $("btn-profile-switch").addEventListener("click", switchPlayer);
+    $("btn-profile-back").addEventListener("click", function () { showStart(); });
+    $("tab-create").addEventListener("click", function () { authMode = "create"; renderAuthMode(); });
+    $("tab-signin").addEventListener("click", function () { authMode = "signin"; renderAuthMode(); });
+    $("auth-form").addEventListener("submit", submitAuth);
+    $("auth-show").addEventListener("change", function () { setPinVisible($("auth-show").checked); });
+    $("btn-auth-back").addEventListener("click", function () { afterAuth = null; (authBack || showStart)(); });
+    $("btn-delete").addEventListener("click", function () { $("delete-confirm").hidden = false; $("btn-delete").hidden = true; $("btn-delete-no").focus(); });
+    $("btn-delete-no").addEventListener("click", function () { $("delete-confirm").hidden = true; $("btn-delete").hidden = false; });
+    $("btn-delete-yes").addEventListener("click", deleteProfile);
+    refreshMe();
   }
 
   // ---------------------------------------------------------------- wire up
@@ -701,5 +906,6 @@ var CONFIG = {
   $("ll-phoneFriend").addEventListener("click", usePhoneFriend);
 
   setupLeaderboardUi();
+  setupProfileUi();
   showStart();
 })();

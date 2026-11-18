@@ -6,7 +6,7 @@
   <title>Mel's Quiz</title>
   <meta name="description" content="Mel's Quiz - a friendly general knowledge money game.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%9F%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <main class="card">
@@ -20,9 +20,75 @@
         <li>Get it wrong, or run out of time, and the game ends, but you keep what you've won.</li>
         <li>Use a lifeline if you're stuck. Each one costs a little money.</li>
       </ul>
+      <p id="start-flash" class="flash" role="status" aria-live="polite" hidden></p>
+
+      <!-- Who is playing (only used when CONFIG.leaderboardUrl is set) -->
+      <div id="player-box" class="player-box" hidden>
+        <div id="player-in" hidden>
+          <p class="player-line">Playing as <strong id="player-name"></strong></p>
+          <p id="player-stats" class="player-stats"></p>
+          <div class="btn-row">
+            <button id="btn-profile" class="btn btn-secondary btn-half" type="button">My profile</button>
+            <button id="btn-switch" class="btn btn-secondary btn-half" type="button">Switch player</button>
+          </div>
+        </div>
+        <div id="player-out" hidden>
+          <p class="player-line">Make a profile to save your scores and get on the leaderboard.</p>
+          <div class="btn-row">
+            <button id="btn-create" class="btn btn-secondary btn-half" type="button">Create my profile</button>
+            <button id="btn-signin" class="btn btn-secondary btn-half" type="button">Sign in</button>
+          </div>
+        </div>
+      </div>
+
       <p id="best-start" class="best" hidden></p>
       <button id="btn-start" class="btn btn-primary" type="button">Start playing</button>
       <button id="btn-leaderboard" class="btn btn-secondary" type="button" hidden>🏆 Leaderboard</button>
+    </section>
+
+    <!-- Create a profile / sign in -->
+    <section id="screen-auth" class="screen" hidden>
+      <h2 id="auth-title" tabindex="-1" class="center">Create your profile</h2>
+      <div class="tabs" role="tablist" aria-label="New or returning player">
+        <button id="tab-create" class="tab" type="button" role="tab">New player</button>
+        <button id="tab-signin" class="tab" type="button" role="tab">I have a profile</button>
+      </div>
+      <form id="auth-form" class="form-card" novalidate>
+        <label for="auth-name">Your name</label>
+        <input id="auth-name" type="text" maxlength="20" autocomplete="nickname" autocapitalize="words" spellcheck="false" placeholder="Type your name">
+        <label for="auth-pin">Your 4-number PIN</label>
+        <input id="auth-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="4 numbers">
+        <div id="auth-pin2-wrap">
+          <label for="auth-pin2">Type your PIN again</label>
+          <input id="auth-pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="4 numbers">
+        </div>
+        <label class="check"><input id="auth-show" type="checkbox"> Show my PIN</label>
+        <p id="auth-msg" class="form-msg" role="alert"></p>
+        <button id="btn-auth" class="btn btn-primary" type="submit">Create my profile</button>
+      </form>
+      <p class="privacy">We keep your name, your PIN (scrambled, so nobody can read it) and your scores. No email address needed. Your name and scores show on the leaderboards. You can delete it all any time.</p>
+      <button id="btn-auth-back" class="btn btn-secondary" type="button">Back</button>
+    </section>
+
+    <!-- My profile -->
+    <section id="screen-profile" class="screen" hidden>
+      <h2 id="profile-title" tabindex="-1" class="center">My profile</h2>
+      <p id="profile-name" class="big-name"></p>
+      <dl class="stats">
+        <div><dt>Best score</dt><dd id="stat-best">-</dd></div>
+        <div><dt>Games played</dt><dd id="stat-games">-</dd></div>
+        <div><dt>Questions right</dt><dd id="stat-correct">-</dd></div>
+      </dl>
+      <p class="privacy">We keep your name, your PIN (scrambled, so nobody can read it) and your scores and stats. No email address. Your name and scores show on the leaderboards.</p>
+      <button id="btn-profile-switch" class="btn btn-secondary" type="button">Switch player</button>
+      <button id="btn-delete" class="btn btn-danger-outline" type="button">Delete my profile</button>
+      <div id="delete-confirm" class="form-card danger-card" hidden>
+        <p><strong>Delete your profile?</strong> This removes your name, your PIN and all your scores for good. It can't be undone.</p>
+        <p id="delete-msg" class="form-msg" role="alert"></p>
+        <button id="btn-delete-yes" class="btn btn-danger" type="button">Yes, delete everything</button>
+        <button id="btn-delete-no" class="btn btn-secondary" type="button">No, keep my profile</button>
+      </div>
+      <button id="btn-profile-back" class="btn btn-primary" type="button">Back</button>
     </section>
 
     <!-- Leaderboard (only used when CONFIG.leaderboardUrl is set) -->
@@ -105,7 +171,7 @@
 
   <p id="footer-note" class="footer">No sign-ups, no tracking. Your best winnings are saved only on this device.</p>
 
-  <script src="questions.js?v=5"></script>
-  <script src="game.js?v=5"></script>
+  <script src="questions.js?v=6"></script>
+  <script src="game.js?v=6"></script>
 </body>
 </html>
