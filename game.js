@@ -19,12 +19,28 @@ var CONFIG = {
   ],
 
   // Lifelines. Each can be used once per game and costs money from her winnings.
+  // Ask Dec is £50 (not £40) so every possible score stays a multiple of £25,
+  // which the shared leaderboard still requires.
   lifelines: {
     removeWrong: { label: "Remove a wrong answer", cost: 50 },
     stopClock:   { label: "Stop the clock",        cost: 50 },
-    phoneFriend: { label: "Ask Dec",               cost: 75 }
+    phoneFriend: { label: "Ask Dec",               cost: 50 }
   },
-  phoneFriendMessage: "Ask Dec! Take your time.", // shown while the clock is paused
+
+  // Ask Dec is a gamble. The three odds should add up to 1.
+  // To try one outcome while testing, add ?debugAskDec=right, knockout or wrong to the address.
+  askDec: {
+    thinkMs: 3000, // short pause while Dec "thinks"; the timer is paused only for this
+    odds: {
+      suggestRight: 0.50, // Dec suggests the correct answer
+      knockOut:     0.30, // Dec knocks out one or two wrong answers
+      suggestWrong: 0.20  // Dec confidently suggests a wrong answer
+    },
+    thinkingLine: "Asking Dec...",
+    suggestLine: "Dec says: I'm pretty sure it's {letter}!",
+    knockOutLine: "Dec isn't sure, but it's definitely not these.",
+    knockOutLineOne: "Dec isn't sure, but it's definitely not this."
+  },
 
   // The best winnings are remembered in the browser under this name.
   storageKey: "melsQuiz.bestWinnings",
@@ -47,7 +63,7 @@ var CONFIG = {
   var money, asked, pools, usedLifelines, current, currentLevel;
   var answered, endReason;
   // timer state
-  var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, friendOpen = false;
+  var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false;
 
   // ---------------------------------------------------------------- helpers
   function fmt(n) { return CONFIG.currency + Number(n).toLocaleString("en-GB"); }
@@ -139,7 +155,7 @@ var CONFIG = {
     asked++;
     answered = false;
     clockStopped = false;
-    friendOpen = false;
+    askDecBusy = false;
 
     $("q-progress").textContent = "Question " + asked + " of " + CONFIG.maxQuestions;
     $("q-level").textContent = level.label + " question for " + fmt(level.prize);
@@ -153,11 +169,14 @@ var CONFIG = {
 
     var box = $("options");
     box.innerHTML = "";
-    shuffle(current.options).forEach(function (text) {
+    shuffle(current.options).forEach(function (text, i) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "btn option";
-      b.textContent = text;
+      b.setAttribute("data-text", text);
+      b.innerHTML = '<span class="option-letter"></span><span class="option-text"></span>';
+      b.querySelector(".option-letter").textContent = "ABCD".charAt(i);
+      b.querySelector(".option-text").textContent = text;
       b.addEventListener("click", function () { choose(b, text); });
       box.appendChild(b);
     });
@@ -181,8 +200,8 @@ var CONFIG = {
     $("timer-fill").className = low ? "low" : "";
     $("timer-seconds").className = "timer-seconds" + (low ? " low" : "");
     var note = "seconds left";
-    if (clockStopped) note = "Clock stopped. Take your time!";
-    else if (friendOpen) note = "Paused";
+    if (clockStopped && !askDecBusy) note = "Clock stopped. Take your time!";
+    else if (askDecBusy) note = "Asking Dec...";
     else if (secs === 1) note = "second left";
     $("timer-note").textContent = note;
   }
@@ -195,7 +214,7 @@ var CONFIG = {
   }
 
   function resumeTimer() {
-    if (answered || clockStopped || friendOpen) return;
+    if (answered || clockStopped || askDecBusy) return;
     lastTick = Date.now();
     running = true;
     clearInterval(timerId);
@@ -239,7 +258,7 @@ var CONFIG = {
       b.innerHTML = '<span class="ll-name"></span><span class="ll-cost"></span>';
       b.querySelector(".ll-name").textContent = ll.label;
       b.querySelector(".ll-cost").textContent = used ? "Used" : fmt(ll.cost);
-      b.disabled = answered || friendOpen || used || !affordable;
+      b.disabled = answered || askDecBusy || used || !affordable;
       b.classList.toggle("used", used);
       var why = used ? "already used" : (!affordable ? "you can't afford this yet" : "costs " + fmt(ll.cost));
       b.setAttribute("aria-label", ll.label + ", " + why);
@@ -249,24 +268,41 @@ var CONFIG = {
 
   function spend(key) {
     var ll = CONFIG.lifelines[key];
-    if (answered || friendOpen || usedLifelines[key] || money < ll.cost) return false;
+    if (answered || askDecBusy || usedLifelines[key] || money < ll.cost) return false;
     money -= ll.cost;
     usedLifelines[key] = true;
     updateMoney();
     return true;
   }
 
+  function optionButtons() { return Array.prototype.slice.call($("options").children); }
+  function optionText(b) { return b.getAttribute("data-text") || b.textContent; }
+  function optionLetter(b) {
+    var i = optionButtons().indexOf(b);
+    return "ABCD".charAt(i);
+  }
+  function remainingWrongs() {
+    return optionButtons().filter(function (b) {
+      return optionText(b) !== current.answer && !b.classList.contains("removed");
+    });
+  }
+  function findCorrect() {
+    var found = null;
+    optionButtons().forEach(function (b) {
+      if (optionText(b) === current.answer) found = b;
+    });
+    return found;
+  }
+  function removeOption(b) {
+    b.disabled = true;
+    b.classList.add("removed");
+    b.setAttribute("aria-label", optionText(b) + " (removed)");
+  }
+
   function useRemoveWrong() {
     if (!spend("removeWrong")) return;
-    var wrongs = Array.prototype.filter.call($("options").children, function (b) {
-      return b.textContent !== current.answer && !b.disabled;
-    });
-    if (wrongs.length) {
-      var gone = pick(wrongs);
-      gone.disabled = true;
-      gone.classList.add("removed");
-      gone.setAttribute("aria-label", gone.textContent + " (removed)");
-    }
+    var wrongs = remainingWrongs();
+    if (wrongs.length) removeOption(pick(wrongs));
     updateLifelines();
   }
 
@@ -278,32 +314,86 @@ var CONFIG = {
     updateLifelines();
   }
 
+  // Hidden test hook: ?debugAskDec=right, knockout or wrong. Ignored for ordinary play.
+  function debugAskDecOutcome() {
+    try {
+      var q = new URLSearchParams(window.location.search).get("debugAskDec");
+      if (q === "right") return "suggestRight";
+      if (q === "knockout") return "knockOut";
+      if (q === "wrong") return "suggestWrong";
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function rollAskDec() {
+    var forced = debugAskDecOutcome();
+    if (forced) return forced;
+    var odds = CONFIG.askDec.odds;
+    var r = Math.random();
+    if (r < odds.suggestRight) return "suggestRight";
+    if (r < odds.suggestRight + odds.knockOut) return "knockOut";
+    return "suggestWrong";
+  }
+
+  function markSuggested(b) {
+    b.classList.add("suggested");
+    b.setAttribute("aria-label", optionLetter(b) + ", " + optionText(b) + ", Dec thinks this is the answer");
+    $("friend-message").textContent = CONFIG.askDec.suggestLine.replace("{letter}", optionLetter(b));
+  }
+
+  function applyAskDec(outcome) {
+    var wrongs = remainingWrongs();
+    var correct = findCorrect();
+
+    if (outcome === "knockOut") {
+      if (!wrongs.length) {
+        $("friend-message").textContent = "Dec isn't sure this time.";
+        return;
+      }
+      // Randomly one or two, but never more than the wrong answers still in play.
+      // A forced knockout knocks out two when it can, so the test screenshot is clear.
+      var want = (wrongs.length === 1) ? 1 : (debugAskDecOutcome() === "knockOut" || Math.random() < 0.5 ? 2 : 1);
+      if (want > wrongs.length) want = wrongs.length;
+      shuffle(wrongs).slice(0, want).forEach(removeOption);
+      $("friend-message").textContent = (want === 1) ? CONFIG.askDec.knockOutLineOne : CONFIG.askDec.knockOutLine;
+      return;
+    }
+
+    // suggestRight and suggestWrong use the same wording, so players can't tell which it is.
+    if (outcome === "suggestRight" && correct) {
+      markSuggested(correct);
+      return;
+    }
+    if (outcome === "suggestWrong" && wrongs.length) {
+      markSuggested(pick(wrongs));
+      return;
+    }
+    $("friend-message").textContent = "Dec isn't sure this time.";
+  }
+
   function usePhoneFriend() {
     if (!spend("phoneFriend")) return;
-    pauseTimer();
-    friendOpen = true;
-    $("friend-message").textContent = CONFIG.phoneFriendMessage;
+    askDecBusy = true;
+    if (!clockStopped) pauseTimer();
+    $("friend-message").textContent = CONFIG.askDec.thinkingLine;
     $("friend-panel").hidden = false;
     setOptionsDisabled(true);
     renderTimer();
     updateLifelines();
-    $("btn-friend-back").focus();
-  }
 
-  function friendBack() {
-    friendOpen = false;
-    $("friend-panel").hidden = true;
-    Array.prototype.forEach.call($("options").children, function (b) {
-      if (!b.classList.contains("removed")) b.disabled = false;
-    });
-    renderTimer();
-    resumeTimer();
-    updateLifelines();
-    $("question-text").focus();
+    window.setTimeout(function () {
+      if (answered) { askDecBusy = false; return; }
+      applyAskDec(rollAskDec());
+      askDecBusy = false;
+      setOptionsDisabled(false);
+      renderTimer();
+      if (!clockStopped) resumeTimer();
+      updateLifelines();
+    }, CONFIG.askDec.thinkMs);
   }
 
   function setOptionsDisabled(flag) {
-    Array.prototype.forEach.call($("options").children, function (b) { b.disabled = flag || b.classList.contains("removed"); });
+    optionButtons().forEach(function (b) { b.disabled = flag || b.classList.contains("removed"); });
   }
 
   // ---------------------------------------------------------------- answering
@@ -313,14 +403,14 @@ var CONFIG = {
   function revealAnswer(chosenButton) {
     Array.prototype.forEach.call($("options").children, function (b) {
       b.disabled = true;
-      if (b.textContent === current.answer) b.classList.add("correct");
+      if (optionText(b) === current.answer) b.classList.add("correct");
       else if (b === chosenButton) b.classList.add("wrong");
       else b.classList.add("dim");
     });
   }
 
   function choose(button, text) {
-    if (answered || friendOpen) return;
+    if (answered || askDecBusy) return;
     answered = true;
     pauseTimer();
     var right = (text === current.answer);
@@ -609,7 +699,6 @@ var CONFIG = {
   $("ll-removeWrong").addEventListener("click", useRemoveWrong);
   $("ll-stopClock").addEventListener("click", useStopClock);
   $("ll-phoneFriend").addEventListener("click", usePhoneFriend);
-  $("btn-friend-back").addEventListener("click", friendBack);
 
   setupLeaderboardUi();
   showStart();

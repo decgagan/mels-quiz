@@ -27,7 +27,7 @@ Each lifeline can be used **once per game**. It costs money, which comes out of 
 | --- | --- | --- |
 | Remove a wrong answer | £50 | Takes away one wrong option |
 | Stop the clock | £50 | Freezes the timer for that question |
-| Ask Dec | £75 | Pauses the timer and says "Ask Dec! Take your time." Ring (or message) Dec, then press **Back to the question** to carry on. The game does nothing else - it's just for asking a real person. |
+| Ask Dec | £50 | A short think, then Dec takes a gamble: he might confidently suggest an answer (which could be right or wrong), or knock out one or two wrong options. You can't tell from the wording whether his suggestion is right. |
 
 When the game ends you see **You won £X!** and your **best winnings** are remembered on that device (in the browser's `localStorage`, so they never leave it).
 
@@ -49,9 +49,16 @@ var CONFIG = {
   lifelines: {
     removeWrong: { label: "Remove a wrong answer", cost: 50 },
     stopClock:   { label: "Stop the clock",        cost: 50 },
-    phoneFriend: { label: "Ask Dec",               cost: 75 }
+    phoneFriend: { label: "Ask Dec",               cost: 50 }
   },
-  phoneFriendMessage: "Ask Dec! Take your time.",
+  askDec: {
+    thinkMs: 3000,
+    odds: { suggestRight: 0.50, knockOut: 0.30, suggestWrong: 0.20 },
+    thinkingLine: "Asking Dec...",
+    suggestLine: "Dec says: I'm pretty sure it's {letter}!",
+    knockOutLine: "Dec isn't sure, but it's definitely not these.",
+    knockOutLineOne: "Dec isn't sure, but it's definitely not this."
+  },
   storageKey: "melsQuiz.bestWinnings",
   leaderboardUrl: "",   // the shared leaderboard; empty = switched off and hidden
   maxNameLength: 20,
@@ -59,7 +66,7 @@ var CONFIG = {
 };
 ```
 
-Change a number or the wording, save, and refresh the page. (If you change the prizes or lifeline costs a lot, her old best winnings will still be shown. To start the best-winnings record afresh, change `storageKey` to a new name.)
+Change a number or the wording, save, and refresh the page. The `askDec.odds` values should add up to 1. Ask Dec costs £50 rather than £40 so every score stays a multiple of £25, which the shared leaderboard still checks. (If you change the prizes or lifeline costs a lot, her old best winnings will still be shown. To start the best-winnings record afresh, change `storageKey` to a new name.)
 
 ## Shared leaderboard (optional)
 
