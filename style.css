@@ -392,3 +392,21 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .board-result.bad { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); }
 .guest-text { margin: 0; font-size: 1.1rem; text-align: center; }
 #end-guest .btn-row .btn { margin-top: 14px; font-size: 1.05rem; }
+
+/* ---------- weekly challenge ---------- */
+.btn-weekly { background: var(--medium); color: #fff; border: 3px solid var(--medium-dark); margin-top: 14px; }
+.btn-weekly:hover { background: var(--medium-dark); }
+.weekly-sub { margin: -6px 0 12px; }
+.weekly-intro { margin: 0 0 14px; font-size: 1rem; text-align: center; }
+.topics { display: grid; gap: 14px; }
+.topic-card { padding: 14px; background: var(--option); border: 3px solid var(--option-border); border-radius: 14px; }
+.topic-card.played { background: #f3efe8; border-color: #cdbfae; }
+.topic-head { display: flex; align-items: center; gap: 10px; }
+.topic-emoji { font-size: 2rem; line-height: 1; }
+.topic-title { font-size: 1.35rem; font-weight: bold; }
+.topic-blurb { margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; }
+.topic-status { margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; font-weight: bold; font-size: 1rem; }
+.topic-status.done { background: var(--good-bg); color: var(--good); }
+.topic-status.partial { background: #fff1b8; color: #6a4300; }
+.topic-card .btn { margin-top: 10px; font-size: 1.1rem; min-height: 56px; }
+.topic-tag { margin: 8px 0 0; font-weight: bold; color: var(--primary-dark); font-size: 1.05rem; }

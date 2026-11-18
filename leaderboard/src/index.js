@@ -11,6 +11,7 @@
 
 import { originAllowed, corsHeaders, json, fail } from "./util.js";
 import { handleGetBoard, handlePostRun } from "./endless.js";
+import { handleState, handleStart, handleFinish, handleLeaderboard } from "./weekly.js";
 import { handleCreate, handleLogin, handleLogout, handleMe, handleDeleteMe } from "./profiles.js";
 
 // ---- Settings for the LEGACY leaderboard (the original 10-question game): 10 questions x the biggest prize, £500 ----
@@ -126,6 +127,12 @@ export default {
       // Endless mode (the main game)
       if (path === "/runs" && post) return await handlePostRun(request, env);
       if (path === "/leaderboard/endless" && get) return await handleGetBoard(request, env);
+
+      // Weekly challenge
+      if (path === "/weekly/state" && get) return await handleState(request, env);
+      if (path === "/weekly/start" && post) return await handleStart(request, env);
+      if (path === "/weekly/finish" && post) return await handleFinish(request, env);
+      if (path === "/weekly/leaderboard" && get) return await handleLeaderboard(request, env);
 
       // The original leaderboard. Kept so the old version of the game keeps working until it is updated.
       if (path === "/scores" && get) return await handleGet(request, env);

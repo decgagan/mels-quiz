@@ -66,7 +66,11 @@ var CONFIG = {
   storageKey: "melsQuiz.bestEndless",
   leaderboardUrl: "",   // the shared leaderboard; empty = switched off and hidden
   maxNameLength: 20,
-  sessionStorageKey: "melsQuiz.session"   // remembers who is signed in on this device
+  sessionStorageKey: "melsQuiz.session",  // remembers who is signed in on this device
+  weekly: {
+    questions: 10,       // per topic
+    loseFraction: 0.5    // a wrong answer loses this fraction of the prize (keep it at 0.5)
+  }
 };
 ```
 
@@ -85,6 +89,32 @@ When `leaderboardUrl` in `CONFIG` is filled in, the game has shared leaderboards
 
 The scores live in a small Cloudflare Worker with a D1 database, in the `leaderboard/` folder. See `leaderboard/README.md` for the exact steps.
 
+## Weekly challenge
+
+A second way to play, once the leaderboard Worker is switched on. Every week has **three topics of ten questions** (for example 80s Music, British Food and Drink, Manchester).
+
+- Press **Weekly challenge** on the start screen. You need a profile, because each profile gets **one go at each topic each week**.
+- Pick a topic. The **Ready?** screen explains the rules, then **Start (one go only)** begins it. The go is recorded **when it starts**, so refreshing the page, closing it or coming back later never gives a second try.
+- The questions come in a fixed order, easy ones first, then medium. Easy is worth **£100**, medium **£250**. There's no choosing, and there are no lives.
+- A **right answer** adds the prize. A **wrong answer, or running out of the 30 seconds, loses half the prize** (£50 or £125) but doesn't end the run. You can't go below **£0**.
+- **Lifelines** are the same three as the main game: Remove a wrong answer, Stop the clock and Ask Dec. Each can be used **once per topic**, costs **£50** and comes out of your winnings (so none at £0). The leaderboard shows when someone used none.
+- The three topics' scores **don't add together**. Each topic has its own **top 10** (one row per player, their score for that topic).
+- Every **Monday at midnight UK time** (Europe/London, so it follows the clocks going forward and back) the week changes: new topics and empty leaderboards. The Worker works out the week, not the player's phone, so changing the phone's clock does nothing. Old weeks' scores stay in the database but aren't shown.
+- If a go was started but not finished, it still counts as played with a score of £0.
+
+### Adding future weeks
+
+The weekly questions are in **`weekly.js`**. It currently has four weeks (Monday 16 Nov, 23 Nov, 30 Nov and 7 Dec 2026). **If there's no entry for the current week, the weekly challenge says "no challenge this week yet", so add new weeks before they start.**
+
+1. Open `weekly.js` and copy a whole week block (from the `"2026-12-07": {` line to its closing `},`).
+2. Paste it after the last week and change the date to the new week's **Monday** (written like `"2026-12-14"`), the three topics (`id`, `title`, `emoji`, `blurb`) and the ten questions in each.
+3. Each question is `{ q: "...", options: ["A", "B", "C", "D"], answer: "B", level: "easy" }`. Use `level: "easy"` (worth £100) for the first six or so and `level: "medium"` (£250) for the last few. The questions are asked in the order you write them.
+4. `answer` must be written **exactly** like one of the four options. Don't reuse a question from anywhere else in `weekly.js` or `questions.js`.
+5. Run `node tests/check-questions.js`. It checks every week has 3 topics with 10 questions each, 4 different options and a valid answer, that the date is a Monday, topic ids aren't reused, and nothing repeats.
+6. Commit and push as usual. Nothing needs changing on the Worker, because it only knows about the date and the topic number (0, 1 or 2), not the questions.
+
+If you ever want a different number of topics or questions, or different prizes, change `CONFIG.weekly` in `game.js` **and** the "game rules" at the top of `leaderboard/src/weekly.js`, then deploy the Worker again.
+
 ## Player profiles
 
 When the leaderboard is switched on, players can make a **profile**: a name (1 to 20 characters, nobody else can have the same one, capital letters don't matter) and a 4-number PIN. The device remembers who is signed in, so they only do it once.
@@ -96,7 +126,7 @@ When the leaderboard is switched on, players can make a **profile**: a name (1 t
 - What's kept on the server: the name, the PIN (only as a salted hash, never the PIN itself), scores and stats. No email address, no IP address. This is written on the sign-up screen too.
 - Playing without a profile still works. You just can't use the leaderboards.
 
-The profile code is in `leaderboard/src/profiles.js`, with the tables in `leaderboard/migrations/0002_profiles.sql`.
+The profile code is in `leaderboard/src/profiles.js`, with the tables in `leaderboard/migrations/0002_profiles.sql`. A profile's stats are: best endless score, games played (endless games) and questions right (endless and weekly together).
 
 ## Files
 
@@ -105,8 +135,9 @@ The profile code is in `leaderboard/src/profiles.js`, with the tables in `leader
 | `index.html` | The page |
 | `style.css` | Colours and big, readable layout |
 | `game.js` | The game itself, with the `CONFIG` at the top |
-| `questions.js` | All the questions - **this is the one to edit** |
-| `tests/check-questions.js` | Checks the question file is tidy (needs Node.js) |
+| `questions.js` | All the questions for the main game - **this is the one to edit** |
+| `weekly.js` | The weekly challenge questions, one block per week (see "Adding future weeks") |
+| `tests/check-questions.js` | Checks `questions.js` and `weekly.js` are tidy (needs Node.js) |
 | `tests/check-worker.mjs` | Checks the Worker's rules (no server needed) |
 | `tests/api-smoke.mjs` | Tries the Worker end to end against a local copy (see `leaderboard/README.md`) |
 | `leaderboard/` | The optional shared leaderboard (Cloudflare Worker + D1 database) |
@@ -135,7 +166,7 @@ To check you haven't made a typo, run this in the project folder (needs [Node.js
 node tests/check-questions.js
 ```
 
-It checks each set has the right number of questions, that every question has 4 different options and a valid answer, and that no question appears twice (even across sets). If you add questions, update the `EXPECTED` numbers at the top of that file.
+It checks each set has the right number of questions, that every question has 4 different options and a valid answer, and that no question appears twice (even across sets and in `weekly.js`). If you add questions to `questions.js`, update the `EXPECTED` numbers at the top of that file.
 
 ## Trying it on your computer
 

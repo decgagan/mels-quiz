@@ -4,8 +4,8 @@ The shared back end for Mel's Quiz: player profiles and the leaderboards.
 
 - **Worker name:** `mels-quiz-leaderboard`
 - **D1 database name:** `mels-quiz-scores`
-- Code: `src/index.js` (the front door), `src/profiles.js` (profiles and sign-in), `src/endless.js` (endless-mode games and leaderboards), `src/util.js` (shared helpers).
-- Database tables are made by the files in `migrations/`, in number order: `0001` the old scores table, `0002` profiles, `0003` endless-mode games.
+- Code: `src/index.js` (the front door), `src/profiles.js` (profiles and sign-in), `src/endless.js` (endless-mode games and leaderboards), `src/weekly.js` (the weekly challenge), `src/util.js` (shared helpers).
+- Database tables are made by the files in `migrations/`, in number order: `0001` the old scores table, `0002` profiles, `0003` endless-mode games, `0004` weekly challenge runs.
 
 ## What it can do
 
@@ -18,6 +18,10 @@ The shared back end for Mel's Quiz: player profiles and the leaderboards.
 | `POST /me/delete` | Delete the signed-in player's profile and all their scores. |
 | `POST /runs` | Save a finished endless game (signed in). |
 | `GET /leaderboard/endless?board=overall` or `board=nolifelines` | Top 10, one row per player (their best game). |
+| `GET /weekly/state` | This week's key (the Monday's date), when it ends, and the signed-in player's runs. |
+| `POST /weekly/start` | Start a topic (`{ "slot": 0 }`, 0 to 2). Refused if that topic was already started this week. |
+| `POST /weekly/finish` | Save a finished weekly run. |
+| `GET /weekly/leaderboard?slot=0` | This week's top 10 for one topic. |
 | `GET /scores`, `POST /scores` | The **old** leaderboard from the 10-question game. Kept so the old version of the game keeps working. |
 
 Signed-in requests send `Authorization: Bearer <token>`.
@@ -29,11 +33,12 @@ Signed-in requests send `Authorization: Bearer <token>`.
 - **Wrong PINs:** after 5 wrong PINs in a row a profile is locked for 15 minutes (even the right PIN is refused during that time).
 - **Sign-in tokens:** a random 64-character token per device, stored only as a hash on the server. A device stays signed in for 400 days. Each profile keeps its newest 8 signed-in devices.
 - **Saving a game** (endless mode): the game must have finished (exactly 3 wrong answers or timeouts), the counts must add up, the score must be a multiple of £25 and no more than those right answers could win (counting the double-prize 10th questions, minus £50 per lifeline used). One game per profile per 10 seconds. Sending the same game twice only saves it once.
+- **Weekly challenge:** the week runs Monday 00:00 to the next Monday 00:00 **UK time** (Europe/London, including summer time), worked out by the Worker. A profile can **start** each of the three topics once a week (the row is saved when it starts, so a refresh can't give a retry). A finished run must be 10 questions, a multiple of £25 and no more than the right answers could win at £250 each, minus £50 per lifeline. It can't be finished within 15 seconds of starting (the game just asks the player to try saving again a moment later) or more than 3 hours after. Each topic's board shows each player's score for that topic this week. Nothing is deleted at the weekend: a new week simply has a new key, so its boards start empty.
 - **Creating profiles:** one new profile per 5 seconds per IP address (a simple best-effort limit kept in the Worker's memory).
 - Only `https://decgagan.github.io` (and `http://localhost` / `http://127.0.0.1`, for testing) can talk to it from a browser.
 - Nothing about IP addresses is stored. There is **no swear filter**.
 
-**If you change the game's prizes, lives, big-question settings or lifeline costs** in `game.js`, change the "game rules" block at the top of `src/endless.js` to match, then deploy again.
+**If you change the game's prizes, lives, big-question settings, lifeline costs or the weekly set-up** in `game.js`, change the "game rules" blocks at the top of `src/endless.js` and `src/weekly.js` to match, then deploy again. (Adding new weekly *questions* needs no Worker change.)
 
 ## Updating the live Worker (it's already set up)
 
@@ -43,7 +48,7 @@ Run these in **PowerShell**, inside the `leaderboard` folder of your copy of the
 
 **1. Get the new files.** If your copy is a git clone, run `git pull` in the main `mels-quiz` folder first. Otherwise copy the whole `src` and `migrations` folders from the new version over the ones in your `leaderboard` folder.
 
-**2. Add the new tables to the real database** (note `--remote`; answer `y` when it asks to continue). It only adds tables: your old scores are not touched.
+**2. Add the new tables to the real database** (this applies `0002`, `0003` and `0004` in one go) (note `--remote`; answer `y` when it asks to continue). It only adds tables: your old scores are not touched.
 
 ```
 npx wrangler d1 migrations apply mels-quiz-scores --remote
@@ -55,7 +60,7 @@ npx wrangler d1 migrations apply mels-quiz-scores --remote
 npx wrangler deploy
 ```
 
-**4. Check it.** Open `https://mels-quiz-leaderboard.decgagan.workers.dev/leaderboard/endless?board=overall` in a browser. You should see `{"ok":true,"board":"overall","scores":[]}`. Then push the website changes as usual.
+**4. Check it.** Open `https://mels-quiz-leaderboard.decgagan.workers.dev/weekly/state` in a browser. You should see something like `{"ok":true,"week":{"key":"2026-11-16","endsAt":"2026-11-23T00:00:00.000Z"},"signedIn":false,"runs":[]}`. (The `key` is the Monday of the current week.) Then push the website changes as usual.
 
 ## Setting it up from scratch (Windows)
 
@@ -154,9 +159,10 @@ Remove one cheeky game (use the `id` from the list above). Their `games_played` 
 npx wrangler d1 execute mels-quiz-scores --remote --command "DELETE FROM endless_runs WHERE id = 5"
 ```
 
-Remove a player and everything of theirs (use the `id` from the players list; run all three, in this order):
+Remove a player and everything of theirs (use the `id` from the players list; run all four, in this order):
 
 ```
+npx wrangler d1 execute mels-quiz-scores --remote --command "DELETE FROM weekly_runs WHERE profile_id = 7"
 npx wrangler d1 execute mels-quiz-scores --remote --command "DELETE FROM endless_runs WHERE profile_id = 7"
 npx wrangler d1 execute mels-quiz-scores --remote --command "DELETE FROM sessions WHERE profile_id = 7"
 npx wrangler d1 execute mels-quiz-scores --remote --command "DELETE FROM profiles WHERE id = 7"
@@ -174,7 +180,7 @@ npx wrangler d1 execute mels-quiz-scores --remote --command "UPDATE profiles SET
 
 ```
 npx wrangler d1 migrations apply mels-quiz-scores --local
-npx wrangler dev --var CREATE_SECONDS:0 RATE_LIMIT_SECONDS:0
+npx wrangler dev --var CREATE_SECONDS:0 RATE_LIMIT_SECONDS:0 WEEKLY_MIN_SECONDS:3
 ```
 
-That runs the Worker at `http://localhost:8787` with a throwaway local database (the two `--var` bits switch the speed limits off so tests aren't slowed down). In another window, from the main folder, `node tests/api-smoke.mjs` tries everything end to end. To play with it in the browser, temporarily put `http://localhost:8787` in `leaderboardUrl` and open the site from `http://localhost` (for example `python -m http.server 8000`). Don't commit that change.
+That runs the Worker at `http://localhost:8787` with a throwaway local database (the `--var` bits switch the speed limits off, and make a weekly run take at least 3 seconds instead of 15, so tests aren't slowed down). In another window, from the main folder, `node tests/api-smoke.mjs` tries everything end to end (it expects a fresh local database, with nobody else on the leaderboards). `node tests/check-worker.mjs` checks the rules, including the Monday-midnight week change either side of the clocks going forward and back, with no server at all. To play with it in the browser, temporarily put `http://localhost:8787` in `leaderboardUrl` and open the site from `http://localhost` (for example `python -m http.server 8000`). Don't commit that change.

@@ -44,7 +44,36 @@
 
       <p id="best-start" class="best" hidden></p>
       <button id="btn-start" class="btn btn-primary" type="button">Start playing</button>
+      <button id="btn-weekly" class="btn btn-weekly" type="button" hidden>📅 Weekly challenge</button>
       <button id="btn-leaderboard" class="btn btn-secondary" type="button" hidden>🏆 Leaderboard</button>
+    </section>
+
+    <!-- Weekly challenge: pick a topic -->
+    <section id="screen-weekly" class="screen" hidden>
+      <h2 id="weekly-title" tabindex="-1" class="center">📅 Weekly challenge</h2>
+      <p id="weekly-sub" class="small-note weekly-sub"></p>
+      <p id="weekly-note" class="flash" role="status" aria-live="polite" hidden></p>
+      <p class="weekly-intro">Three topics, ten questions each. You get <strong>one go</strong> at each topic. Wrong answers cost you money but don't end your go. Your best score for each topic goes on that topic's leaderboard, and the boards start afresh every Monday.</p>
+      <div id="weekly-guest" class="form-card" hidden>
+        <p class="guest-text">You need a profile to play, so we know whose go it is.</p>
+        <div class="btn-row">
+          <button id="btn-weekly-create" class="btn btn-primary btn-half" type="button">Create my profile</button>
+          <button id="btn-weekly-signin" class="btn btn-secondary btn-half" type="button">Sign in</button>
+        </div>
+      </div>
+      <div id="weekly-msg" aria-live="polite" hidden></div>
+      <div id="weekly-topics" class="topics"></div>
+      <button id="btn-weekly-back" class="btn btn-primary" type="button">Back</button>
+    </section>
+
+    <!-- Weekly challenge: ready? -->
+    <section id="screen-weekly-ready" class="screen" hidden>
+      <h2 id="ready-title" tabindex="-1" class="center">Ready?</h2>
+      <p id="ready-topic" class="big-name"></p>
+      <ul id="ready-rules" class="rules"></ul>
+      <p id="ready-msg" class="form-msg" role="alert"></p>
+      <button id="btn-ready-start" class="btn btn-primary" type="button">Start (one go only)</button>
+      <button id="btn-ready-back" class="btn btn-secondary" type="button">Not yet, go back</button>
     </section>
 
     <!-- Create a profile / sign in -->
@@ -128,6 +157,7 @@
         </div>
         <span class="money">You have <strong id="q-money">£0</strong></span>
       </div>
+      <p id="q-topic" class="topic-tag" hidden></p>
       <p id="q-level" class="level-tag"></p>
 
       <div class="timer" role="timer" aria-label="Time left">
@@ -187,6 +217,7 @@
   <p id="footer-note" class="footer">No sign-ups, no tracking. Your best winnings are saved only on this device.</p>
 
   <script src="questions.js?v=6"></script>
+  <script src="weekly.js?v=6"></script>
   <script src="game.js?v=6"></script>
 </body>
 </html>

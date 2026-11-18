@@ -1,9 +1,11 @@
 // Talks to a RUNNING Worker and checks the main flows. Needs a local Worker:
 //   cd leaderboard
 //   npx wrangler d1 migrations apply mels-quiz-scores --local
-//   npx wrangler dev --var CREATE_SECONDS:0 RATE_LIMIT_SECONDS:0
+//   npx wrangler dev --var CREATE_SECONDS:0 RATE_LIMIT_SECONDS:0 WEEKLY_MIN_SECONDS:3
 // then, in another window:   node tests/api-smoke.mjs   (or: node tests/api-smoke.mjs http://localhost:8787)
-// It makes up throwaway players with random names, so it is safe to run more than once.
+// It makes up throwaway players with random names and deletes them again, so it is safe to run more than once.
+// Use a FRESH local database: it checks things like "rank 1", which other players on the boards would change.
+// NEVER point it at the live Worker.
 
 const BASE = (process.argv[2] || "http://localhost:8787").replace(/\/+$/, "");
 const ORIGIN = "http://localhost:8000";
@@ -152,7 +154,62 @@ async function endless() {
   ok(!r.data.scores.some((x) => x.name.endsWith(tag)), "deleting profiles removes their scores");
 }
 
+async function weekly() {
+  console.log("Weekly challenge");
+  const mk = async (n) => (await call("POST", "/profiles", { name: n + " " + tag, pin: "2222" })).data.token;
+  const a = await mk("Wa"), b = await mk("Wb");
+  let r = await call("GET", "/weekly/state");
+  ok(r.status === 200 && /^\d{4}-\d{2}-\d{2}$/.test(r.data.week.key) && r.data.signedIn === false && r.data.runs.length === 0, "state works signed out and gives the week key");
+  const week = r.data.week.key;
+  ok(new Date(week + "T12:00:00Z").getUTCDay() === 1, "week key is a Monday");
+  r = await call("POST", "/weekly/start", { slot: 0 });
+  ok(r.status === 401, "starting needs a sign-in");
+  r = await call("POST", "/weekly/start", { slot: 3 }, a);
+  ok(r.status === 400, "unknown topic refused");
+  r = await call("POST", "/weekly/start", { slot: 1 }, a);
+  ok(r.status === 201 && r.data.week === week, "start topic 1");
+  r = await call("POST", "/weekly/start", { slot: 1 }, a);
+  ok(r.status === 409, "starting the same topic again is refused (no retry)");
+  r = await call("GET", "/weekly/state", undefined, a);
+  ok(r.data.runs.length === 1 && r.data.runs[0].slot === 1 && r.data.runs[0].status === "started", "state shows topic 1 as started");
+  r = await call("POST", "/weekly/finish", { slot: 1, score: 1000, correct: 6, wrong: 4, lifelines: [] }, a);
+  ok(r.status === 429 && /just a moment/i.test(r.data.error), "finishing instantly is told to wait (this local Worker uses a 3 second minimum; the real one 15)");
+  r = await call("POST", "/weekly/finish", { slot: 0, score: 0, correct: 0, wrong: 10, lifelines: [] }, a);
+  ok(r.status === 404, "can't finish a topic that wasn't started");
+  await new Promise((res) => setTimeout(res, 3300));
+  r = await call("POST", "/weekly/finish", { slot: 1, score: 1600, correct: 6, wrong: 4, lifelines: [] }, a);
+  ok(r.status === 400, "score above the maximum refused");
+  r = await call("POST", "/weekly/finish", { slot: 1, score: 1250, correct: 6, wrong: 4, lifelines: [] }, a);
+  ok(r.status === 200 && r.data.saved === true && r.data.score === 1250 && r.data.rank === 1, "finish saves the score, rank 1");
+  r = await call("POST", "/weekly/finish", { slot: 1, score: 1500, correct: 6, wrong: 4, lifelines: [] }, a);
+  ok(r.status === 200 && r.data.saved === false && r.data.score === 1250, "finishing again keeps the first score");
+  r = await call("POST", "/weekly/start", { slot: 1 }, a);
+  ok(r.status === 409, "still no retry after finishing");
+  r = await call("GET", "/me", undefined, a);
+  ok(r.data.profile.totalCorrect === 6 && r.data.profile.gamesPlayed === 0, "total correct goes up by 6; games played (endless) unchanged");
+
+  await call("POST", "/weekly/start", { slot: 1 }, b);
+  await new Promise((res) => setTimeout(res, 3300));
+  r = await call("POST", "/weekly/finish", { slot: 1, score: 1350, correct: 6, wrong: 4, lifelines: ["stopClock"] }, b);
+  ok(r.status === 200, "valid run with a lifeline saves (6 right, one lifeline: up to £1,450)");
+  r = await call("GET", "/weekly/leaderboard?slot=1", undefined, b);
+  const rows = r.data.scores.filter((x) => x.name.endsWith(tag));
+  ok(rows.length === 2 && rows[0].name.startsWith("Wb") && rows[1].name.startsWith("Wa"), "weekly board: Wb 1350 above Wa 1250");
+  ok(rows[0].me === true && rows[0].noLifelines === false && rows[1].noLifelines === true, "'me' and no-lifelines flags");
+  r = await call("GET", "/weekly/leaderboard?slot=0");
+  ok(r.data.scores.filter((x) => x.name.endsWith(tag)).length === 0, "other topics have separate boards");
+  r = await call("GET", "/weekly/leaderboard?slot=9");
+  ok(r.status === 400, "bad slot refused");
+  r = await call("GET", "/weekly/state", undefined, a);
+  ok(r.data.runs[0].status === "finished" && r.data.runs[0].score === 1250, "state shows the finished score (the 'already played' screen)");
+
+  for (const t of [a, b]) await call("POST", "/me/delete", {}, t);
+  r = await call("GET", "/weekly/leaderboard?slot=1");
+  ok(!r.data.scores.some((x) => x.name.endsWith(tag)), "deleting profiles removes their weekly scores too");
+}
+
 const token = await profiles();
+await weekly();
 await endless();
 await call("POST", "/me/delete", {}, token);
 console.log(failures ? `\n${failures} FAILED` : "\nAll good.");

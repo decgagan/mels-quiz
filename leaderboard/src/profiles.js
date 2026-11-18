@@ -169,7 +169,7 @@ export async function handleMe(request, env) {
 }
 
 // Tables with a profile_id column, emptied (in this order) before the profile itself goes.
-export const PROFILE_TABLES = ["sessions", "endless_runs"];
+export const PROFILE_TABLES = ["sessions", "endless_runs", "weekly_runs"];
 
 export async function handleDeleteMe(request, env) {
   const bad = checkOrigin(request);

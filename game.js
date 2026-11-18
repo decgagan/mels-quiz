@@ -28,6 +28,15 @@ var CONFIG = {
     bigPrize: 1000
   },
 
+  // WEEKLY CHALLENGE (needs the leaderboard Worker). The questions are in weekly.js.
+  // A wrong answer or a timeout loses `loseFraction` of that question's prize (never below £0) and doesn't end the run.
+  // Easy and medium prizes come from `levels` above. Keep `loseFraction` at 0.5 so every amount stays a multiple of £25
+  // (half of £250 is £125). Lifelines work as in the main game: once each per run, paid from the winnings.
+  weekly: {
+    questions: 10,
+    loseFraction: 0.5
+  },
+
   // Lifelines. Each can be used once per game (they never refill) and costs money from her winnings.
   // Ask Dec is £50 (not £40) so every possible score stays a multiple of £25,
   // which the shared leaderboard still requires.
@@ -70,11 +79,13 @@ var CONFIG = {
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
-  var screens = { start: $("screen-start"), auth: $("screen-auth"), profile: $("screen-profile"), leaderboard: $("screen-leaderboard"), choose: $("screen-choose"), question: $("screen-question"), end: $("screen-end") };
+  var screens = { start: $("screen-start"), weekly: $("screen-weekly"), weeklyReady: $("screen-weekly-ready"), auth: $("screen-auth"), profile: $("screen-profile"), leaderboard: $("screen-leaderboard"), choose: $("screen-choose"), question: $("screen-question"), end: $("screen-end") };
 
   // ---- game state
   var money, asked, pools, usedLifelines, current, currentLevel, currentPrize, currentBig, lastQuestion;
   var lives, answeredBy, correctBy, runId, lastRun;
+  var mode = "endless";            // "endless" or "weekly"
+  var weeklyState = null, weeklyTopic = null, weeklySlot = 0, wCorrect = 0, wWrong = 0;
   var answered, endReason;
   // timer state
   var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false;
@@ -138,6 +149,7 @@ var CONFIG = {
   }
 
   function newGame() {
+    mode = "endless";
     money = CONFIG.startMoney;
     asked = 0;
     lives = CONFIG.endless.lives;
@@ -210,19 +222,25 @@ var CONFIG = {
   }
 
   // ---------------------------------------------------------------- question
-  function startQuestion(level, prize, big) {
+  function startQuestion(level, prize, big, fixedQuestion) {
     currentLevel = level;
     currentPrize = prize;
     currentBig = !!big;
-    current = drawQuestion(level);
+    current = fixedQuestion || drawQuestion(level);
     asked++;
     answered = false;
     clockStopped = false;
     askDecBusy = false;
 
-    $("q-progress").textContent = "Question " + asked;
+    var weekly = (mode === "weekly");
+    $("q-progress").textContent = weekly ? "Question " + asked + " of " + CONFIG.weekly.questions : "Question " + asked;
+    $("q-hearts").hidden = weekly;
     renderHearts($("q-hearts"));
-    $("q-level").textContent = (big ? "Big hard question" : level.label + " question") + " for " + fmt(prize);
+    $("q-topic").hidden = !weekly;
+    if (weekly) $("q-topic").textContent = weeklyTopic.emoji + " " + weeklyTopic.title;
+    $("q-level").textContent = weekly
+      ? level.label + " question: win " + fmt(prize) + ", or lose " + fmt(lossFor(prize))
+      : (big ? "Big hard question" : level.label + " question") + " for " + fmt(prize);
     $("q-level").className = "level-tag level-" + level.key + (big ? " level-big" : "");
     $("question-text").textContent = current.q;
     $("feedback").hidden = true;
@@ -484,26 +502,14 @@ var CONFIG = {
     return " You lose a life. " + lives + (lives === 1 ? " life" : " lives") + " left.";
   }
 
+  function lossFor(prize) { return Math.round(prize * CONFIG.weekly.loseFraction); }
+
   function choose(button, text) {
     if (answered || askDecBusy) return;
     answered = true;
     pauseTimer();
-    var right = (text === current.answer);
-    var fb = $("feedback");
     revealAnswer(button);
-    answeredBy[currentLevel.key]++;
-
-    if (right) {
-      correctBy[currentLevel.key]++;
-      money += currentPrize;
-      fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
-      fb.className = "feedback good";
-    } else {
-      loseLife();
-      fb.textContent = "✘ " + pick(CONSOLATIONS) + " The right answer was: " + current.answer + "." + lifeLine();
-      fb.className = "feedback bad";
-    }
-    afterAnswer();
+    settle(text === current.answer, false);
   }
 
   function timeUp() {
@@ -511,11 +517,41 @@ var CONFIG = {
     answered = true;
     stopTimer();
     revealAnswer(null);
-    answeredBy[currentLevel.key]++;
-    loseLife();
+    settle(false, true);
+  }
+
+  // Works out the money (and lives) after an answer or a timeout.
+  function settle(right, timedOut) {
     var fb = $("feedback");
-    fb.textContent = "⏰ Time's up! The right answer was: " + current.answer + "." + lifeLine();
-    fb.className = "feedback bad";
+    var oops = timedOut ? "⏰ Time's up!" : "✘ " + pick(CONSOLATIONS);
+    var reveal = " The right answer was: " + current.answer + (/[.!?]$/.test(current.answer) ? "" : ".");
+    if (mode === "weekly") {
+      if (right) {
+        wCorrect++;
+        money += currentPrize;
+        fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
+        fb.className = "feedback good";
+      } else {
+        wWrong++;
+        var lose = Math.min(money, lossFor(currentPrize));
+        money -= lose;
+        fb.textContent = oops + reveal + (lose > 0 ? " You lose " + fmt(lose) + "." : " You had nothing to lose, so you're still on " + fmt(money) + ".");
+        fb.className = "feedback bad";
+      }
+      if (asked >= CONFIG.weekly.questions) endReason = "complete";
+    } else {
+      answeredBy[currentLevel.key]++;
+      if (right) {
+        correctBy[currentLevel.key]++;
+        money += currentPrize;
+        fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
+        fb.className = "feedback good";
+      } else {
+        loseLife();
+        fb.textContent = oops + reveal + lifeLine();
+        fb.className = "feedback bad";
+      }
+    }
     afterAnswer();
   }
 
@@ -524,14 +560,15 @@ var CONFIG = {
     updateMoney();
     updateLifelines();
     var next = $("btn-next");
-    next.textContent = endReason ? "See what I won" : "Choose my next question";
+    if (mode === "weekly") next.textContent = endReason ? "See my result" : "Next question";
+    else next.textContent = endReason ? "See what I won" : "Choose my next question";
     next.hidden = false;
     next.focus();
   }
 
   function next() {
     if (endReason) { finish(); return; }
-    showChoose();
+    if (mode === "weekly") weeklyNext(); else showChoose();
   }
 
   // ---------------------------------------------------------------- end
@@ -546,7 +583,10 @@ var CONFIG = {
   function sum(o) { return o.easy + o.medium + o.hard; }
 
   function finish() {
+    if (mode === "weekly") { finishWeekly(); return; }
     stopTimer();
+    $("end-title").textContent = "Game over";
+    $("btn-again").textContent = "Play again";
     var best = loadBest();
     var newBest = (best === null || money > best) && money > 0;
     if (newBest) { saveBest(money); best = money; }
@@ -557,7 +597,7 @@ var CONFIG = {
       answered: { easy: answeredBy.easy, medium: answeredBy.medium, hard: answeredBy.hard },
       correct: { easy: correctBy.easy, medium: correctBy.medium, hard: correctBy.hard },
       lifelines: Object.keys(CONFIG.lifelines).filter(function (k) { return usedLifelines[k]; }),
-      saved: false, saving: false, result: null
+      kind: "endless", saved: false, saving: false, result: null
     };
     $("end-reason").textContent = "You ran out of lives, so the game is over.";
     $("end-won").textContent = "You won " + fmt(money) + "!";
@@ -606,6 +646,14 @@ var CONFIG = {
         var err = new Error("network"); err.status = 0; reject(err);
       });
     });
+  }
+
+  // The Worker's own words are only shown for ordinary "that didn't work" answers (wrong PIN, name taken, too quick...).
+  // For anything else (for example the server hasn't been updated yet) we say something kinder.
+  function friendlyError(err, doing) {
+    if (err.serverMessage && [400, 401, 409, 429].indexOf(err.status) !== -1) return err.serverMessage;
+    if (err.status === 0) return "Couldn't reach the game's server just now. Please check your connection and try again.";
+    return "Sorry, " + doing + " isn't working just now. Please try again in a little while.";
   }
 
   // How a row's mix of questions is described.
@@ -663,11 +711,11 @@ var CONFIG = {
         tail.textContent = qn + " questions · " + (ll.length ? ll.length + (ll.length === 1 ? " lifeline" : " lifelines") : "no lifelines");
         tail.title = ll.length ? "Used: " + lifelineNames(ll).join(", ") : "No lifelines used";
         meta.appendChild(tail);
-      } else if (row.noLifelines) {
-        var nl = document.createElement("span");
-        nl.className = "board-detail";
-        nl.textContent = "No lifelines";
-        meta.appendChild(nl);
+      } else {
+        var wd = document.createElement("span");
+        wd.className = "board-detail";
+        wd.textContent = row.correct + " of " + CONFIG.weekly.questions + " right" + (row.noLifelines ? " · no lifelines" : "");
+        meta.appendChild(wd);
       }
       if (meta.childNodes.length) who.appendChild(meta);
       if (row.me) {
@@ -711,7 +759,9 @@ var CONFIG = {
 
   // ---- the Leaderboard screen from the start page: Top 10 / No lifelines
   var lbTab = "overall";
+  var lbBack = null;
   function showLeaderboardScreen() {
+    lbBack = showStart;
     lbTab = "overall";
     $("leaderboard-title").textContent = "🏆 Top 10 leaderboard";
     $("lb-tabs").hidden = false;
@@ -746,6 +796,7 @@ var CONFIG = {
     var wrap = $("end-leaderboard");
     if (!lbOn || !run) { wrap.hidden = true; return; }
     wrap.hidden = false;
+    var weekly = (run.kind === "weekly");
     $("end-guest").hidden = true;
     $("btn-end-retry").hidden = true;
     $("btn-end-boards").hidden = true;
@@ -753,12 +804,14 @@ var CONFIG = {
     endStatus("");
     if (!session) {
       $("end-guest").hidden = false;
-      $("end-guest-text").textContent = run.score > 0
+      $("end-guest-text").textContent = weekly
+        ? "You've been signed out. Sign in to save your " + fmt(run.score) + " for this week's leaderboard."
+        : run.score > 0
         ? "Want your " + fmt(run.score) + " on the leaderboard? Make a profile (or sign in) and your score is saved."
         : "Make a profile (or sign in) to save your games and join the leaderboards.";
       return;
     }
-    if (run.saved) { showSavedResult(run.result); return; }
+    if (run.saved) { (weekly ? showSavedWeekly : showSavedResult)(run.result); return; }
     saveRun();
   }
 
@@ -773,21 +826,35 @@ var CONFIG = {
     $("btn-end-boards").hidden = false;
   }
 
+  function showSavedWeekly(data) {
+    var msg;
+    if (data.rank && data.rank <= data.scores.length) msg = "🎉 You're number " + data.rank + " on this week's leaderboard for " + weeklyTopic.title + "!";
+    else if (data.rank) msg = "Saved! You're number " + data.rank + " this week. Not in the top 10 this time.";
+    else msg = "Saved. No money won this time, but thanks for playing!";
+    endStatus(msg, "");
+    renderBoard($("board-end"), data.scores, "weekly");
+    $("btn-end-boards").hidden = true;
+  }
+
   function saveRun() {
     var run = lastRun;
     if (!run || run.saved || run.saving) return;
     run.saving = true;
     endStatus("Saving your score...", "plain");
     $("btn-end-retry").hidden = true;
-    apiRequest("POST", "/runs", { runId: run.runId, score: run.score, answered: run.answered, correct: run.correct, lifelines: run.lifelines }).then(function (data) {
+    var weekly = (run.kind === "weekly");
+    var request = weekly
+      ? apiRequest("POST", "/weekly/finish", { slot: run.slot, score: run.score, correct: run.correct, wrong: run.wrong, lifelines: run.lifelines })
+      : apiRequest("POST", "/runs", { runId: run.runId, score: run.score, answered: run.answered, correct: run.correct, lifelines: run.lifelines });
+    request.then(function (data) {
       run.saving = false; run.saved = true; run.result = data;
       me = data.profile;
-      if (lastRun === run && !screens.end.hidden) showSavedResult(data);
+      if (lastRun === run && !screens.end.hidden) (weekly ? showSavedWeekly : showSavedResult)(data);
     }).catch(function (err) {
       run.saving = false;
       if (lastRun !== run || screens.end.hidden) return;
       if (!session) { renderEndSave(); return; }   // our sign-in stopped working: offer to sign in again
-      endStatus(err.serverMessage || "Couldn't save your score just now. Please check your connection and try again.", "bad");
+      endStatus(friendlyError(err, "saving scores"), "bad");
       $("btn-end-retry").hidden = false;
     });
   }
@@ -803,7 +870,7 @@ var CONFIG = {
     $("btn-leaderboard").hidden = false;
     $("footer-note").textContent = "No email needed and no tracking. Your best winnings are saved on this device. If you make a profile, your name, PIN (scrambled) and scores are kept on the game's server, and your name and scores are shown to everyone who plays.";
     $("btn-leaderboard").addEventListener("click", showLeaderboardScreen);
-    $("btn-board-back").addEventListener("click", function () { showStart(); });
+    $("btn-board-back").addEventListener("click", function () { (lbBack || showStart)(); });
     $("tab-lb-overall").addEventListener("click", function () { lbTab = "overall"; renderLbTabs(); loadEndlessBoard(); });
     $("tab-lb-nolifelines").addEventListener("click", function () { lbTab = "nolifelines"; renderLbTabs(); loadEndlessBoard(); });
     $("btn-end-retry").addEventListener("click", saveRun);
@@ -936,9 +1003,7 @@ var CONFIG = {
       authBusy = false;
       btn.disabled = false;
       renderAuthMode();
-      msg.textContent = err.serverMessage || (err.status === 0
-        ? "Couldn't reach the game's server just now. Please check your connection and try again."
-        : "That didn't work. Please try again in a little while.");
+      msg.textContent = friendlyError(err, authMode === "create" ? "making profiles" : "signing in");
     });
   }
 
@@ -979,7 +1044,7 @@ var CONFIG = {
     }).catch(function (err) {
       btn.disabled = false;
       if (!session) { showStart("Please sign in again."); return; }
-      msg.textContent = err.serverMessage || "Couldn't delete it just now. Please check your connection and try again.";
+      msg.textContent = friendlyError(err, "deleting your profile");
     });
   }
 
@@ -1002,15 +1067,239 @@ var CONFIG = {
     refreshMe();
   }
 
+  // ---------------------------------------------------------------- weekly challenge
+  // 3 topics a week, 10 questions each, ONE go at each topic per profile. The Worker decides which week it is
+  // (UK time) and remembers who has started what; the questions are in weekly.js, keyed by the Monday's date.
+  function weekContent(key) {
+    return (typeof WEEKLY !== "undefined" && WEEKLY[key]) ? WEEKLY[key] : null;
+  }
+
+  function longDate(iso) {
+    var d = new Date(iso.length === 10 ? iso + "T12:00:00Z" : iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: iso.length === 10 ? "UTC" : "Europe/London" });
+  }
+
+  function showWeekly(note) {
+    stopTimer();
+    mode = "weekly-menu";
+    $("weekly-msg").hidden = true;
+    $("weekly-guest").hidden = true;
+    $("weekly-topics").innerHTML = "";
+    $("weekly-sub").textContent = "";
+    $("weekly-note").hidden = !(typeof note === "string" && note);
+    $("weekly-note").textContent = (typeof note === "string") ? note : "";
+    show("weekly");
+    $("weekly-title").focus();
+    weeklyMessage("Loading this week's challenge...", false);
+    apiRequest("GET", "/weekly/state").then(function (state) {
+      weeklyState = state;
+      renderWeekly();
+    }).catch(function () {
+      weeklyMessage("Couldn't load the weekly challenge just now. Please try again in a little while.", true);
+    });
+  }
+
+  function weeklyMessage(text, withRetry) {
+    var box = $("weekly-msg");
+    box.hidden = false;
+    box.innerHTML = "";
+    var p = document.createElement("p");
+    p.className = withRetry ? "board-error" : "small-note";
+    p.textContent = text;
+    box.appendChild(p);
+    if (withRetry) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn-secondary";
+      b.textContent = "Try again";
+      b.addEventListener("click", function () { showWeekly(); });
+      box.appendChild(b);
+    }
+  }
+
+  function runForSlot(slot) {
+    var runs = (weeklyState && weeklyState.runs) || [];
+    for (var i = 0; i < runs.length; i++) if (runs[i].slot === slot) return runs[i];
+    return null;
+  }
+
+  function renderWeekly() {
+    $("weekly-msg").hidden = true;
+    var key = weeklyState.week.key;
+    var content = weekContent(key);
+    var signedIn = !!session && weeklyState.signedIn;
+    var endsOn = longDate(new Date(Date.parse(weeklyState.week.endsAt) - 60000).toISOString());
+    $("weekly-sub").textContent = "Week of " + longDate(key) + ". Ends Sunday night, " + endsOn + ". New topics every Monday.";
+    $("weekly-guest").hidden = signedIn;
+    if (!content) {
+      weeklyMessage("There's no weekly challenge ready for this week yet. Please check back soon!", false);
+      $("weekly-guest").hidden = true;
+      return;
+    }
+    var box = $("weekly-topics");
+    box.innerHTML = "";
+    content.topics.forEach(function (topic, slot) {
+      var run = runForSlot(slot);
+      var card = document.createElement("div");
+      card.className = "topic-card" + (run ? " played" : "");
+      var head = document.createElement("div");
+      head.className = "topic-head";
+      var em = document.createElement("span");
+      em.className = "topic-emoji";
+      em.textContent = topic.emoji;
+      em.setAttribute("aria-hidden", "true");
+      var title = document.createElement("span");
+      title.className = "topic-title";
+      title.textContent = topic.title;
+      head.appendChild(em); head.appendChild(title);
+      var blurb = document.createElement("p");
+      blurb.className = "topic-blurb";
+      blurb.textContent = topic.blurb;
+      card.appendChild(head); card.appendChild(blurb);
+
+      if (run) {
+        var st = document.createElement("p");
+        st.className = "topic-status " + (run.status === "finished" ? "done" : "partial");
+        st.textContent = run.status === "finished"
+          ? "✔ Played. You scored " + fmt(run.score) + " (" + run.correct + " of " + CONFIG.weekly.questions + " right)."
+          : "You started this one but didn't finish it, so it counts as your go.";
+        card.appendChild(st);
+      } else if (signedIn) {
+        var play = document.createElement("button");
+        play.type = "button";
+        play.className = "btn btn-primary";
+        play.textContent = "Play " + topic.title;
+        play.addEventListener("click", function () { showWeeklyReady(slot); });
+        card.appendChild(play);
+      }
+      var top = document.createElement("button");
+      top.type = "button";
+      top.className = "btn btn-secondary";
+      top.textContent = "🏆 Top 10 for " + topic.title;
+      top.addEventListener("click", function () { showWeeklyBoard(slot); });
+      card.appendChild(top);
+      box.appendChild(card);
+    });
+  }
+
+  function showWeeklyReady(slot) {
+    var content = weekContent(weeklyState.week.key);
+    weeklyTopic = content.topics[slot];
+    weeklySlot = slot;
+    $("ready-topic").textContent = weeklyTopic.emoji + " " + weeklyTopic.title;
+    $("ready-msg").textContent = "";
+    $("btn-ready-start").disabled = false;
+    $("btn-ready-start").textContent = "Start (one go only)";
+    $("ready-rules").innerHTML = "";
+    [
+      weeklyTopic.questions.length + " questions, " + CONFIG.secondsPerQuestion + " seconds each.",
+      "A right answer wins the prize: " + fmt(levelByKey("easy").prize) + " for an easy question, " + fmt(levelByKey("medium").prize) + " for a medium one.",
+      "A wrong answer, or running out of time, loses half that prize. You can't go below " + fmt(0) + ", and a wrong answer doesn't end your go.",
+      "Lifelines cost " + fmt(CONFIG.lifelines.removeWrong.cost) + " each, come out of your winnings, and can be used once each.",
+      "You only get ONE go at this topic this week. Once you press Start it counts as played, even if you close the page."
+    ].forEach(function (t) {
+      var li = document.createElement("li");
+      li.textContent = t;
+      $("ready-rules").appendChild(li);
+    });
+    show("weeklyReady");
+    $("ready-title").focus();
+  }
+
+  function startWeeklyRun() {
+    var btn = $("btn-ready-start");
+    btn.disabled = true;
+    btn.textContent = "Starting...";
+    $("ready-msg").textContent = "";
+    apiRequest("POST", "/weekly/start", { slot: weeklySlot }).then(function () {
+      weeklyBegin();
+    }).catch(function (err) {
+      if (err.status === 409) { showWeekly("You've already had your go at that topic this week."); return; }
+      if (!session) { showWeekly("Please sign in again."); return; }
+      btn.disabled = false;
+      btn.textContent = "Start (one go only)";
+      $("ready-msg").textContent = friendlyError(err, "the weekly challenge");
+    });
+  }
+
+  function weeklyBegin() {
+    mode = "weekly";
+    money = 0;
+    asked = 0;
+    usedLifelines = {};
+    endReason = "";
+    wCorrect = 0;
+    wWrong = 0;
+    lastRun = null;
+    weeklyNext();
+  }
+
+  function weeklyNext() {
+    var q = weeklyTopic.questions[asked];
+    var level = levelByKey(q.level);
+    startQuestion(level, level.prize, false, q);
+  }
+
+  function weeklyMessageFor(won) {
+    if (won >= 2000) return "Amazing! You really know your stuff.";
+    if (won >= 1000) return "Brilliant scoring!";
+    if (won > 0) return "Nice one! See how you got on against everyone else below.";
+    return "Not this time, but there are two more topics to try!";
+  }
+
+  function finishWeekly() {
+    stopTimer();
+    $("end-title").textContent = "Weekly challenge done!";
+    $("end-reason").textContent = weeklyTopic.emoji + " " + weeklyTopic.title;
+    $("end-won").textContent = "You scored " + fmt(money);
+    $("end-summary").textContent = wCorrect + " right, " + wWrong + " wrong or timed out.";
+    $("end-message").textContent = weeklyMessageFor(money);
+    $("end-best").textContent = "";
+    $("btn-again").textContent = "Back to the weekly challenge";
+    lastRun = {
+      kind: "weekly", slot: weeklySlot, score: money, correct: wCorrect, wrong: wWrong,
+      lifelines: Object.keys(CONFIG.lifelines).filter(function (k) { return usedLifelines[k]; }),
+      saved: false, saving: false, result: null
+    };
+    show("end");
+    renderEndSave();
+    $("end-title").focus();
+  }
+
+  function showWeeklyBoard(slot) {
+    var content = weekContent(weeklyState.week.key);
+    var topic = content.topics[slot];
+    lbBack = function () { showWeekly(); };
+    $("leaderboard-title").textContent = topic.emoji + " " + topic.title;
+    $("lb-tabs").hidden = true;
+    $("lb-sub").textContent = "This week's top 10. The board starts afresh every Monday.";
+    show("leaderboard");
+    loadBoard($("board-main"), "/weekly/leaderboard?slot=" + slot, "weekly");
+    $("leaderboard-title").focus();
+  }
+
+  function setupWeeklyUi() {
+    if (!lbOn || typeof WEEKLY === "undefined") return;
+    $("btn-weekly").hidden = false;
+    $("btn-weekly").addEventListener("click", function () { showWeekly(); });
+    $("btn-weekly-back").addEventListener("click", function () { showStart(); });
+    $("btn-ready-start").addEventListener("click", startWeeklyRun);
+    $("btn-ready-back").addEventListener("click", function () { showWeekly(); });
+    $("btn-weekly-create").addEventListener("click", function () { showAuth("create", showWeekly, showWeekly); });
+    $("btn-weekly-signin").addEventListener("click", function () { showAuth("signin", showWeekly, showWeekly); });
+  }
+
   // ---------------------------------------------------------------- wire up
   $("btn-start").addEventListener("click", newGame);
   $("btn-next").addEventListener("click", next);
-  $("btn-again").addEventListener("click", newGame);
+  $("btn-again").addEventListener("click", function () { if (lastRun && lastRun.kind === "weekly") showWeekly(); else newGame(); });
   $("ll-removeWrong").addEventListener("click", useRemoveWrong);
   $("ll-stopClock").addEventListener("click", useStopClock);
   $("ll-phoneFriend").addEventListener("click", usePhoneFriend);
 
   setupLeaderboardUi();
   setupProfileUi();
+  setupWeeklyUi();
   showStart();
 })();
