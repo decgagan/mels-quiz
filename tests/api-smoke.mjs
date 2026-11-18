@@ -189,22 +189,30 @@ async function weekly() {
   ok(r.data.profile.totalCorrect === 6 && r.data.profile.gamesPlayed === 0, "total correct goes up by 6; games played (endless) unchanged");
 
   await call("POST", "/weekly/start", { slot: 1 }, b);
+  r = await call("POST", "/weekly/start", { slot: 2 }, a);
+  ok(r.status === 201, "the same player can start a different topic");
   await new Promise((res) => setTimeout(res, 3300));
   r = await call("POST", "/weekly/finish", { slot: 1, score: 1350, correct: 6, wrong: 4, lifelines: ["stopClock"] }, b);
   ok(r.status === 200, "valid run with a lifeline saves (6 right, one lifeline: up to £1,450)");
-  r = await call("GET", "/weekly/leaderboard?slot=1", undefined, b);
+  r = await call("POST", "/weekly/finish", { slot: 2, score: 900, correct: 5, wrong: 5, lifelines: ["phoneFriend"] }, a);
+  ok(r.status === 200 && r.data.saved === true, "a second topic run by the same player saves too");
+  ok(r.data.scores.filter((x) => x.name.endsWith(tag)).length === 3, "the finish reply carries the same combined board");
+  r = await call("GET", "/weekly/leaderboard", undefined, b);
   const rows = r.data.scores.filter((x) => x.name.endsWith(tag));
-  ok(rows.length === 2 && rows[0].name.startsWith("Wb") && rows[1].name.startsWith("Wa"), "weekly board: Wb 1350 above Wa 1250");
-  ok(rows[0].me === true && rows[0].noLifelines === false && rows[1].noLifelines === true, "'me' and no-lifelines flags");
-  r = await call("GET", "/weekly/leaderboard?slot=0");
-  ok(r.data.scores.filter((x) => x.name.endsWith(tag)).length === 0, "other topics have separate boards");
+  ok(rows.length === 3, "one weekly board holds every topic run: " + rows.length + " rows for our two players");
+  ok(rows[0].name.startsWith("Wb") && rows[0].slot === 1 && rows[0].score === 1350, "top row: Wb, topic 1, 1350");
+  ok(rows[1].name.startsWith("Wa") && rows[1].slot === 1 && rows[1].score === 1250, "next: Wa, topic 1, 1250");
+  ok(rows[2].name.startsWith("Wa") && rows[2].slot === 2 && rows[2].score === 900, "and Wa again, topic 2, 900 (a player can appear once per topic)");
+  ok(rows[0].me === true && rows[1].me === false && rows[0].noLifelines === false && rows[1].noLifelines === true && rows[2].noLifelines === false, "'me' and no-lifelines flags");
+  ok(r.data.scores.length <= 10 && typeof r.data.week === "string", "top 10 at most, with the week key");
   r = await call("GET", "/weekly/leaderboard?slot=9");
-  ok(r.status === 400, "bad slot refused");
+  ok(r.status === 200, "an old-style ?slot= is simply ignored (one board now)");
   r = await call("GET", "/weekly/state", undefined, a);
-  ok(r.data.runs[0].status === "finished" && r.data.runs[0].score === 1250, "state shows the finished score (the 'already played' screen)");
+  const t1 = r.data.runs.find((x) => x.slot === 1);
+  ok(t1 && t1.status === "finished" && t1.score === 1250, "state shows the finished score (the 'already played' screen)");
 
   for (const t of [a, b]) await call("POST", "/me/delete", {}, t);
-  r = await call("GET", "/weekly/leaderboard?slot=1");
+  r = await call("GET", "/weekly/leaderboard");
   ok(!r.data.scores.some((x) => x.name.endsWith(tag)), "deleting profiles removes their weekly scores too");
 }
 

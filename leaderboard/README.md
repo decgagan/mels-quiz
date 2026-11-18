@@ -21,7 +21,7 @@ The shared back end for Mel's Quiz: player profiles and the leaderboards.
 | `GET /weekly/state` | This week's key (the Monday's date), when it ends, and the signed-in player's runs. |
 | `POST /weekly/start` | Start a topic (`{ "slot": 0 }`, 0 to 2). Refused if that topic was already started this week. |
 | `POST /weekly/finish` | Save a finished weekly run. |
-| `GET /weekly/leaderboard?slot=0` | This week's top 10 for one topic. |
+| `GET /weekly/leaderboard` | This week's top 10 runs, **all three topics together**. Each finished topic run is its own row (so a player can appear up to three times), with its topic number (`slot`). An old-style `?slot=` is ignored. |
 | `GET /scores`, `POST /scores` | The **old** leaderboard from the 10-question game. Kept so the old version of the game keeps working. |
 
 Signed-in requests send `Authorization: Bearer <token>`.
@@ -33,7 +33,7 @@ Signed-in requests send `Authorization: Bearer <token>`.
 - **Wrong PINs:** after 5 wrong PINs in a row a profile is locked for 15 minutes (even the right PIN is refused during that time).
 - **Sign-in tokens:** a random 64-character token per device, stored only as a hash on the server. A device stays signed in for 400 days. Each profile keeps its newest 8 signed-in devices.
 - **Saving a game** (endless mode): the game must have finished (exactly 3 wrong answers or timeouts), the counts must add up, the score must be a multiple of £25 and no more than those right answers could win (counting the double-prize 10th questions, minus £50 per lifeline used). One game per profile per 10 seconds. Sending the same game twice only saves it once.
-- **Weekly challenge:** the week runs Monday 00:00 to the next Monday 00:00 **UK time** (Europe/London, including summer time), worked out by the Worker. A profile can **start** each of the three topics once a week (the row is saved when it starts, so a refresh can't give a retry). A finished run must be 10 questions, a multiple of £25 and no more than the right answers could win at £250 each, minus £50 per lifeline. It can't be finished within 15 seconds of starting (the game just asks the player to try saving again a moment later) or more than 3 hours after. Each topic's board shows each player's score for that topic this week. Nothing is deleted at the weekend: a new week simply has a new key, so its boards start empty.
+- **Weekly challenge:** the week runs Monday 00:00 to the next Monday 00:00 **UK time** (Europe/London, including summer time), worked out by the Worker. A profile can **start** each of the three topics once a week (the row is saved when it starts, so a refresh can't give a retry). A finished run must be 10 questions, a multiple of £25 and no more than the right answers could win at £250 each, minus £50 per lifeline. It can't be finished within 15 seconds of starting (the game just asks the player to try saving again a moment later) or more than 3 hours after. There is one weekly board for all three topics: each finished topic run is its own row (scores are never added together), best 10 by score, shown with the player's name, topic and whether they used lifelines. Nothing is deleted at the weekend: a new week simply has a new key, so its board starts empty.
 - **Creating profiles:** one new profile per 5 seconds per IP address (a simple best-effort limit kept in the Worker's memory).
 - Only `https://decgagan.github.io` (and `http://localhost` / `http://127.0.0.1`, for testing) can talk to it from a browser.
 - Nothing about IP addresses is stored. There is **no swear filter**.

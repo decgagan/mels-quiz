@@ -3,7 +3,7 @@
 //   GET  /weekly/state                (sign in optional) -> { ok, week: { key, endsAt }, runs: [ { slot, status, score, correct, wrong, noLifelines } ] }
 //   POST /weekly/start   { slot }     (signed in) -> 201 { ok, week, slot }   or 409 if that topic was already started this week
 //   POST /weekly/finish  { slot, score, correct, wrong, lifelines } (signed in) -> { ok, score, rank, profile, scores }
-//   GET  /weekly/leaderboard?slot=0   -> { ok, week, slot, scores: [ top 10 for this week and topic ] }
+//   GET  /weekly/leaderboard          -> { ok, week, scores: [ top 10 runs this week, all topics together, each with its topic number ] }
 //
 // The week is worked out HERE, from the Worker's clock, in UK time (Europe/London): it runs from Monday 00:00 to
 // the next Monday 00:00. The questions themselves live in weekly.js on the website, keyed by the same Monday date.
@@ -130,24 +130,23 @@ export async function handleStart(request, env) {
   return json(request, { ok: true, week: week.key, slot: read.body.slot }, 201);
 }
 
-async function topWeekly(env, weekKey, slot, meId) {
+// ONE board for the week, all three topics together. Every finished topic run is its own entry, so the same
+// player can appear up to three times (once per topic). Scores are never added together.
+async function topWeekly(env, weekKey, meId) {
   const { results } = await env.DB
-    .prepare(`SELECT p.name, w.score, w.correct, w.lifelines, w.profile_id
+    .prepare(`SELECT p.name, w.slot, w.score, w.correct, w.lifelines, w.profile_id
               FROM weekly_runs w JOIN profiles p ON p.id = w.profile_id
-              WHERE w.week_key = ?1 AND w.slot = ?2 AND w.finished_at IS NOT NULL AND w.score > 0
-              ORDER BY w.score DESC, w.finished_at ASC, w.id ASC LIMIT ?3`)
-    .bind(weekKey, slot, TOP_N)
+              WHERE w.week_key = ?1 AND w.finished_at IS NOT NULL AND w.score > 0
+              ORDER BY w.score DESC, w.finished_at ASC, w.id ASC LIMIT ?2`)
+    .bind(weekKey, TOP_N)
     .all();
-  return results.map((r) => ({ name: r.name, score: r.score, correct: r.correct, noLifelines: r.lifelines === "", me: meId !== undefined && meId !== null && r.profile_id === meId }));
+  return results.map((r) => ({ name: r.name, slot: r.slot, score: r.score, correct: r.correct, noLifelines: r.lifelines === "", me: meId !== undefined && meId !== null && r.profile_id === meId }));
 }
 
 export async function handleLeaderboard(request, env) {
-  const url = new URL(request.url);
-  const slot = Number(url.searchParams.get("slot"));
-  if (!validateSlot(slot)) return fail(request, 400, "Unknown topic.");
   const me = await authProfile(request, env);
   const week = weekInfo();
-  return json(request, { ok: true, week: week.key, slot, scores: await topWeekly(env, week.key, slot, me ? me.id : null) });
+  return json(request, { ok: true, week: week.key, scores: await topWeekly(env, week.key, me ? me.id : null) });
 }
 
 export async function handleFinish(request, env) {
@@ -169,14 +168,14 @@ export async function handleFinish(request, env) {
   const reply = async (row, saved) => {
     const fresh = await env.DB.prepare("SELECT * FROM profiles WHERE id = ?1").bind(me.id).first();
     const ahead = await env.DB
-      .prepare("SELECT COUNT(*) AS n FROM weekly_runs WHERE week_key = ?1 AND slot = ?2 AND finished_at IS NOT NULL AND score > ?3")
-      .bind(row.week_key, row.slot, row.score)
+      .prepare("SELECT COUNT(*) AS n FROM weekly_runs WHERE week_key = ?1 AND finished_at IS NOT NULL AND score > ?2")
+      .bind(row.week_key, row.score)
       .first();
     return json(request, {
       ok: true, saved, score: row.score, week: row.week_key,
       rank: row.score > 0 ? ahead.n + 1 : null,
       profile: profileJson(fresh),
-      scores: await topWeekly(env, row.week_key, row.slot, me.id),
+      scores: await topWeekly(env, row.week_key, me.id),
     });
   };
   if (!open) return fail(request, 404, "That run isn't open. Start the topic first.");

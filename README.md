@@ -98,7 +98,7 @@ A second way to play, once the leaderboard Worker is switched on. Every week has
 - The questions come in a fixed order, easy ones first, then medium. Easy is worth **£100**, medium **£250**. There's no choosing, and there are no lives.
 - A **right answer** adds the prize. A **wrong answer, or running out of the 30 seconds, loses half the prize** (£50 or £125) but doesn't end the run. You can't go below **£0**.
 - **Lifelines** are the same three as the main game: Remove a wrong answer, Stop the clock and Ask Dec. Each can be used **once per topic**, costs **£50** and comes out of your winnings (so none at £0). The leaderboard shows when someone used none.
-- The three topics' scores **don't add together**. Each topic has its own **top 10** (one row per player, their score for that topic).
+- The three topics' scores **don't add together**. There is **one weekly top 10** for all three topics: every topic go is its own row, so the same player can be on it up to three times (once per topic). Each row shows the player's name, the topic, and "no lifelines" if they used none. Press **This week's top 10** on the weekly screen to see it.
 - Every **Monday at midnight UK time** (Europe/London, so it follows the clocks going forward and back) the week changes: new topics and empty leaderboards. The Worker works out the week, not the player's phone, so changing the phone's clock does nothing. Old weeks' scores stay in the database but aren't shown.
 - If a go was started but not finished, it still counts as played with a score of £0.
 

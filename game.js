@@ -670,7 +670,7 @@ var CONFIG = {
   }
 
   // Player names are untrusted: they are only ever put on the page with textContent, never innerHTML.
-  function renderBoard(box, scores, kind) {
+  function renderBoard(box, scores, kind, weekKey) {
     box.innerHTML = "";
     if (!scores || !scores.length) {
       var empty = document.createElement("p");
@@ -712,6 +712,15 @@ var CONFIG = {
         tail.title = ll.length ? "Used: " + lifelineNames(ll).join(", ") : "No lifelines used";
         meta.appendChild(tail);
       } else {
+        // The one weekly board mixes all three topics, so each row says which topic it was for.
+        var content = weekKey ? weekContent(weekKey) : null;
+        var topic = content && content.topics[row.slot];
+        if (topic) {
+          var tp = document.createElement("span");
+          tp.className = "board-topic";
+          tp.textContent = topic.emoji + " " + topic.title;
+          meta.appendChild(tp);
+        }
         var wd = document.createElement("span");
         wd.className = "board-detail";
         wd.textContent = row.correct + " of " + CONFIG.weekly.questions + " right" + (row.noLifelines ? " · no lifelines" : "");
@@ -741,7 +750,7 @@ var CONFIG = {
     wait.textContent = "Loading the leaderboard...";
     box.appendChild(wait);
     apiRequest("GET", path).then(function (data) {
-      renderBoard(box, data.scores, kind);
+      renderBoard(box, data.scores, kind, data.week);
     }).catch(function () {
       box.innerHTML = "";
       var msg = document.createElement("p");
@@ -828,11 +837,11 @@ var CONFIG = {
 
   function showSavedWeekly(data) {
     var msg;
-    if (data.rank && data.rank <= data.scores.length) msg = "🎉 You're number " + data.rank + " on this week's leaderboard for " + weeklyTopic.title + "!";
+    if (data.rank && data.rank <= data.scores.length) msg = "🎉 You're number " + data.rank + " on this week's leaderboard with " + weeklyTopic.title + "!";
     else if (data.rank) msg = "Saved! You're number " + data.rank + " this week. Not in the top 10 this time.";
     else msg = "Saved. No money won this time, but thanks for playing!";
     endStatus(msg, "");
-    renderBoard($("board-end"), data.scores, "weekly");
+    renderBoard($("board-end"), data.scores, "weekly", data.week);
     $("btn-end-boards").hidden = true;
   }
 
@@ -1173,12 +1182,6 @@ var CONFIG = {
         play.addEventListener("click", function () { showWeeklyReady(slot); });
         card.appendChild(play);
       }
-      var top = document.createElement("button");
-      top.type = "button";
-      top.className = "btn btn-secondary";
-      top.textContent = "🏆 Top 10 for " + topic.title;
-      top.addEventListener("click", function () { showWeeklyBoard(slot); });
-      card.appendChild(top);
       box.appendChild(card);
     });
   }
@@ -1267,15 +1270,14 @@ var CONFIG = {
     $("end-title").focus();
   }
 
-  function showWeeklyBoard(slot) {
-    var content = weekContent(weeklyState.week.key);
-    var topic = content.topics[slot];
+  // One leaderboard for the whole week, all three topics together (each topic go is its own row).
+  function showWeeklyBoard() {
     lbBack = function () { showWeekly(); };
-    $("leaderboard-title").textContent = topic.emoji + " " + topic.title;
+    $("leaderboard-title").textContent = "🏆 This week's top 10";
     $("lb-tabs").hidden = true;
-    $("lb-sub").textContent = "This week's top 10. The board starts afresh every Monday.";
+    $("lb-sub").textContent = "All three topics together. Each go is its own row, so a player can be on it up to three times. The board starts afresh every Monday.";
     show("leaderboard");
-    loadBoard($("board-main"), "/weekly/leaderboard?slot=" + slot, "weekly");
+    loadBoard($("board-main"), "/weekly/leaderboard", "weekly");
     $("leaderboard-title").focus();
   }
 
@@ -1284,6 +1286,7 @@ var CONFIG = {
     $("btn-weekly").hidden = false;
     $("btn-weekly").addEventListener("click", function () { showWeekly(); });
     $("btn-weekly-back").addEventListener("click", function () { showStart(); });
+    $("btn-weekly-board").addEventListener("click", showWeeklyBoard);
     $("btn-ready-start").addEventListener("click", startWeeklyRun);
     $("btn-ready-back").addEventListener("click", function () { showWeekly(); });
     $("btn-weekly-create").addEventListener("click", function () { showAuth("create", showWeekly, showWeekly); });
