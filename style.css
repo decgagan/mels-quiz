@@ -501,6 +501,11 @@ body[data-screen="question"] h2#question-text { margin: 14px 0 16px; }
 .ll-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .ll-chips li { padding: 4px 10px; border-radius: 999px; background: #e8f1ff; border: 2px solid #b9cdea; color: var(--medium-dark); font-size: 0.85rem; line-height: 1.35; }
 
+/* The hearts sit beside the question number, so the top bar is one line (money wraps under it only if it must) */
+.money-bar { align-items: center; gap: 4px 10px; line-height: 1.2; }
+.mb-left { flex-direction: row; align-items: center; gap: 10px; }
+.money { margin-left: auto; }
+
 @media (max-width: 480px) {
   body { padding: 10px; }
   body[data-screen="choose"] h1 { font-size: 1.15rem; margin-bottom: 2px; }
@@ -511,15 +516,12 @@ body[data-screen="question"] h2#question-text { margin: 14px 0 16px; }
   .timer-bar { height: 14px; margin-top: 6px; }
   body[data-screen="question"] h2#question-text { font-size: 1.35rem; margin: 10px 0 12px; }
   .option { font-size: 1.15rem; min-height: 52px; }
-  .money-bar { font-size: 0.95rem; }
+  .money-bar { font-size: 0.95rem; column-gap: 6px; }
+  .mb-left { gap: 6px; }
   .money strong { font-size: 1.35rem; }
   .hearts { font-size: 1.3rem; letter-spacing: 1px; }
 }
 
-/* The hearts sit beside the question number, so the top bar is one line (money wraps under it only if it must) */
-.money-bar { align-items: center; gap: 4px 10px; line-height: 1.2; }
-.mb-left { flex-direction: row; align-items: center; gap: 10px; }
-.money { margin-left: auto; }
 /* Beside the level pill the seconds sit on the right (on a phone they go under the pill, on the left) */
 @media (min-width: 481px) {
   .timer-top { margin-left: auto; }
@@ -598,3 +600,41 @@ body[data-screen="question"] h2#question-text { margin: 14px 0 16px; }
   /* on a phone's question screen that corner holds the money, and every bit of room is needed */
   body[data-screen="question"] .sound-toggle { display: none; }
 }
+
+/* ---------- a little movement ---------- */
+/* The last five seconds are red. Everything that moves is only for people who haven't asked their device for less motion. */
+.timer-seconds.urgent { color: var(--bad); }
+#timer-fill.urgent { background: #c62828; }
+.money strong { display: inline-block; }
+.heart { display: inline-block; }
+
+.confetti { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 50; }
+.confetti i { position: absolute; top: -20px; width: 9px; height: 15px; border-radius: 2px; animation-name: confetti-fall; animation-timing-function: linear; animation-fill-mode: forwards; }
+.confetti i.round { width: 9px; height: 9px; border-radius: 50%; }
+@keyframes confetti-fall { to { transform: translate3d(var(--dx, 0), 110vh, 0) rotate(var(--spin, 360deg)); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .screen { animation: screen-in 0.25s ease-out; }
+  .feedback, .hint-panel, .friend-panel, .double-panel, .board-result, .flash { animation: rise-in 0.3s ease-out; }
+  .option.correct, .option.suggested { animation: pop 0.5s ease-out; }
+  .option.wrong { animation: shake 0.45s ease-in-out; }
+  .heart.just-lost { animation: heart-lost 0.8s ease-out; }
+  .money strong.bump-up { animation: bump 0.5s ease-out; }
+  .money strong.bump-down { animation: dip 0.6s ease-out; }
+  .choice-big { animation: glow 1.8s ease-in-out infinite; }
+  .timer-seconds.urgent { animation: throb 1s ease-in-out infinite; }
+  .big-score { animation: big-score-in 0.6s ease-out; }
+}
+@keyframes screen-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.04); } 100% { transform: scale(1); } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@keyframes heart-lost { 0% { transform: scale(1); color: #d4202c; } 30% { transform: scale(1.6); color: #d4202c; } 100% { transform: scale(1); } }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes dip { 0%, 100% { color: var(--good); } 30% { color: var(--bad); } }
+@keyframes glow {
+  0%, 100% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18), 0 0 0 4px rgba(217, 162, 0, 0.35); }
+  50% { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18), 0 0 0 10px rgba(217, 162, 0, 0.2); }
+}
+@keyframes throb { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes big-score-in { 0% { transform: scale(0.85); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); } }

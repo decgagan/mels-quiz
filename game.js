@@ -205,6 +205,28 @@ var CONFIG = {
     b.title = on ? "Sound effects are on. Press to turn them off." : "Sound effects are off. Press to turn them on.";
   }
 
+  // A short shower of confetti for a moment worth celebrating (not for anyone who has asked for less motion).
+  function confetti() {
+    if (reduceMotion()) return;
+    var layer = document.createElement("div");
+    layer.className = "confetti";
+    layer.setAttribute("aria-hidden", "true");
+    var colours = ["#b3410f", "#17693a", "#1d5190", "#8c1f3b", "#e0b300", "#f28c28"];
+    for (var i = 0; i < 70; i++) {
+      var bit = document.createElement("i");
+      bit.style.left = (Math.random() * 100) + "%";
+      bit.style.background = colours[i % colours.length];
+      bit.style.animationDuration = (2.2 + Math.random() * 1.8) + "s";
+      bit.style.animationDelay = (Math.random() * 0.7) + "s";
+      bit.style.setProperty("--dx", Math.round(Math.random() * 200 - 100) + "px");
+      bit.style.setProperty("--spin", Math.round(Math.random() * 900 - 450) + "deg");
+      if (i % 3 === 0) bit.className = "round";
+      layer.appendChild(bit);
+    }
+    document.body.appendChild(layer);
+    window.setTimeout(function () { if (layer.parentNode) layer.parentNode.removeChild(layer); }, 5000);
+  }
+
   // ---------------------------------------------------------------- best winnings
   // (localStorage can be unavailable, e.g. private browsing, so never let it crash the game)
   function loadBest() {
@@ -350,9 +372,9 @@ var CONFIG = {
 
   function isBigQuestion(n) { return n % CONFIG.endless.bigEvery === 0; }
 
-  function renderHearts(el) {
+  function renderHearts(el, justLost) {
     var html = "";
-    for (var i = 0; i < CONFIG.endless.lives; i++) html += '<span class="heart' + (i < lives ? "" : " lost") + '">♥</span>';
+    for (var i = 0; i < CONFIG.endless.lives; i++) html += '<span class="heart' + (i < lives ? "" : " lost") + (justLost && i === lives ? " just-lost" : "") + '">♥</span>';
     el.innerHTML = html;
     el.setAttribute("aria-label", lives + (lives === 1 ? " life" : " lives") + " left");
   }
@@ -481,7 +503,26 @@ var CONFIG = {
     });
   }
 
-  function updateMoney() { $("q-money").textContent = fmt(money); }
+  // The money on the question screen. With `animate` it counts up (or down) to the new amount and gives a little pop.
+  var moneyShown = 0, moneyAnim = 0;
+  function updateMoney(animate) {
+    var el = $("q-money");
+    var from = moneyShown, to = money;
+    moneyShown = to;
+    if (moneyAnim) { window.cancelAnimationFrame(moneyAnim); moneyAnim = 0; }
+    el.classList.remove("bump-up", "bump-down");
+    if (!animate || from === to || reduceMotion() || !window.requestAnimationFrame) { el.textContent = fmt(to); return; }
+    void el.offsetWidth;   // restart the pop
+    el.classList.add(to > from ? "bump-up" : "bump-down");
+    var start = null, length = Math.min(900, 350 + Math.abs(to - from) / 2);
+    function step(now) {
+      if (start === null) start = now;
+      var k = Math.min(1, (now - start) / length);
+      el.textContent = fmt(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3))));
+      moneyAnim = k < 1 ? window.requestAnimationFrame(step) : 0;
+    }
+    moneyAnim = window.requestAnimationFrame(step);
+  }
 
   // ---------------------------------------------------------------- timer
   function renderTimer() {
@@ -491,8 +532,10 @@ var CONFIG = {
     $("timer-fill").style.width = Math.max(0, remainingMs / total * 100) + "%";
     var paused = clockStopped || askDecBusy;   // shown in calm blue, so a stopped clock looks stopped
     var low = remainingMs <= 10000 && !paused;
-    $("timer-fill").className = paused ? "stopped" : (low ? "low" : "");
-    $("timer-seconds").className = "timer-seconds" + (paused ? " stopped" : (low ? " low" : ""));
+    var urgent = remainingMs <= 5000 && !paused && !answered;
+    var state = paused ? "stopped" : urgent ? "urgent" : low ? "low" : "";
+    $("timer-fill").className = state;
+    $("timer-seconds").className = "timer-seconds" + (state ? " " + state : "");
     if (running && secs !== tickSecs && secs >= 1 && secs <= 5) Sound.play("tick");   // the last five seconds
     tickSecs = secs;
     var note = "seconds left";
@@ -569,7 +612,7 @@ var CONFIG = {
     if (answered || askDecBusy || usedLifelines[key] || money < ll.cost) return false;
     money -= ll.cost;
     usedLifelines[key] = true;
-    updateMoney();
+    updateMoney(true);
     Sound.play(key === "phoneFriend" ? "phone" : key === "double" ? "double" : "lifeline");
     return true;
   }
@@ -763,7 +806,7 @@ var CONFIG = {
   // Wrong answers and timeouts both cost a life.
   function loseLife() {
     lives--;
-    renderHearts($("q-hearts"));
+    renderHearts($("q-hearts"), true);
     if (lives <= 0) endReason = "lives";
   }
   function lifeLine() {
@@ -822,7 +865,7 @@ var CONFIG = {
       answeredBy[currentLevel.key]++;
       if (right) {
         correctBy[currentLevel.key]++;
-        if (currentBig) bigCorrect++;
+        if (currentBig) { bigCorrect++; confetti(); }
         money += won;
         fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(won) + "!" + (doubleArmed ? " Double or nothing paid off! 🎲" : "");
         fb.className = "feedback good";
@@ -839,7 +882,7 @@ var CONFIG = {
 
   function afterAnswer() {
     $("feedback").hidden = false;
-    updateMoney();
+    updateMoney(true);
     updateLifelines();
     $("lifelines").hidden = true;   // nothing left to press until the next question, so keep the screen clear
     var next = $("btn-next");
@@ -876,6 +919,7 @@ var CONFIG = {
     var newBest = (best === null || money > best) && money > 0;
     if (newBest) { saveBest(money); best = money; }
     Sound.play(newBest ? "best" : "end");
+    if (newBest) confetti();
     var total = sum(answeredBy), right = sum(correctBy);
     lastRun = {
       runId: runId,
@@ -1722,6 +1766,7 @@ var CONFIG = {
     stopTimer();
     $("end-title").textContent = "Weekly challenge done!";
     Sound.play(wCorrect === CONFIG.weekly.questions ? "best" : "end");
+    if (wCorrect === CONFIG.weekly.questions) confetti();
     $("end-reason").textContent = weeklyTopic.emoji + " " + weeklyTopic.title;
     $("end-won").textContent = "You scored " + fmt(money);
     $("end-summary").textContent = wCorrect + " right, " + wWrong + " wrong or timed out.";
