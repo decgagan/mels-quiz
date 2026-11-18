@@ -12,6 +12,7 @@
 import { originAllowed, corsHeaders, json, fail } from "./util.js";
 import { handleGetBoard, handlePostRun } from "./endless.js";
 import { handleState, handleStart, handleFinish, handleLeaderboard } from "./weekly.js";
+import { handleStats } from "./stats.js";
 import { handleCreate, handleLogin, handleLogout, handleMe, handleDeleteMe } from "./profiles.js";
 
 // ---- Settings for the LEGACY leaderboard (the original 10-question game): 10 questions x the biggest prize, £500 ----
@@ -122,6 +123,7 @@ export default {
       if (path === "/login" && post) return await handleLogin(request, env);
       if (path === "/logout" && post) return await handleLogout(request, env);
       if (path === "/me" && get) return await handleMe(request, env);
+      if (path === "/me/stats" && get) return await handleStats(request, env);
       if (path === "/me/delete" && post) return await handleDeleteMe(request, env);
 
       // Endless mode (the main game)

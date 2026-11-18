@@ -82,8 +82,8 @@ When `leaderboardUrl` in `CONFIG` is filled in, the game has shared leaderboards
 
 - When a signed-in player's game ends, the score is saved automatically and the top 10 is shown with their row highlighted. If they haven't got a profile, the end screen offers to create one (or sign in) and then saves that game.
 - The start screen has a **Leaderboard** button with two tabs: **Top 10** (each player's best game) and **No lifelines** (best games where no lifeline was used).
-- Each row has a small badge showing the mix of questions in that game (**Mostly hard**, **Mostly easy** or **Mixed**), plus how many questions and lifelines were used.
-- Each saved game records: the money won, how many easy / medium / hard questions were answered and got right, and which lifelines were used. The Worker refuses numbers that don't add up (see `leaderboard/src/endless.js`).
+- Each row has a second line with the full breakdown of that game, for example **12 easy · 5 medium · 3 hard · 2 big** ("big" are the every-10th-question ones, counted separately from the other hard questions), and a third line showing which lifelines were used as little icons (✂️ Remove a wrong answer, ⏱️ Stop the clock, 📞 Ask Dec) or **No lifelines**. Rows from before the big questions were tracked show them from the question count.
+- Each saved game records: the money won, how many easy / medium / hard questions were answered and got right, how many of the big 10th questions were right, and which lifelines were used. The Worker refuses numbers that don't add up (see `leaderboard/src/endless.js`).
 - If the leaderboard can't be reached, the game says so kindly and carries on working. When `leaderboardUrl` is empty (`""`), all the profile and leaderboard buttons are hidden and the game works exactly as before.
 - **Old scores:** the original 10-question game's top-10 stays safely in the old `scores` table (it is not deleted or shown in the new game). The Worker still answers the old `/scores` address, so the old version of the game keeps working until the new one goes live.
 
@@ -98,7 +98,7 @@ A second way to play, once the leaderboard Worker is switched on. Every week has
 - The questions come in a fixed order, easy ones first, then medium. Easy is worth **£100**, medium **£250**. There's no choosing, and there are no lives.
 - A **right answer** adds the prize. A **wrong answer, or running out of the 30 seconds, loses half the prize** (£50 or £125) but doesn't end the run. You can't go below **£0**.
 - **Lifelines** are the same three as the main game: Remove a wrong answer, Stop the clock and Ask Dec. Each can be used **once per topic**, costs **£50** and comes out of your winnings (so none at £0). The leaderboard shows when someone used none.
-- The three topics' scores **don't add together**. There is **one weekly top 10** for all three topics: every topic go is its own row, so the same player can be on it up to three times (once per topic). Each row shows the player's name, the topic, and "no lifelines" if they used none. Press **This week's top 10** on the weekly screen to see it.
+- The three topics' scores **don't add together**. There is **one weekly top 10** for all three topics: every topic go is its own row, so the same player can be on it up to three times (once per topic). Each row shows the player's name, the topic, how many were right and wrong (for example **8/10 right · 2 wrong**), and the lifelines used as icons (or **No lifelines**). Press **This week's top 10** on the weekly screen to see it.
 - Every **Monday at midnight UK time** (Europe/London, so it follows the clocks going forward and back) the week changes: new topics and empty leaderboards. The Worker works out the week, not the player's phone, so changing the phone's clock does nothing. Old weeks' scores stay in the database but aren't shown.
 - If a go was started but not finished, it still counts as played with a score of £0.
 
@@ -121,12 +121,12 @@ When the leaderboard is switched on, players can make a **profile**: a name (1 t
 
 - **Create my profile** / **Sign in** are on the start screen. To play on another phone, choose **Sign in** and type the same name and PIN.
 - **Switch player** signs out of this device (handy on a shared phone).
-- **My profile** shows their stats (best score, games played, questions right) and a **Delete my profile** button, which removes the profile and all their scores for good.
+- **My profile** is a full stats page and has a **Delete my profile** button, which removes the profile and all their scores for good. The stats are: questions answered, questions right, accuracy, total money earned (endless and weekly), member since; for the endless game the best score, average score, games played and longest run (in questions); questions answered and right for easy, medium and hard, and for the big 10th questions; how many times each lifeline was used; and for the weekly challenge the runs played, best score and total winnings. If there's nothing to work out yet (no games, say) it shows a dash.
 - After 5 wrong PINs in a row the profile is locked for 15 minutes.
 - What's kept on the server: the name, the PIN (only as a salted hash, never the PIN itself), scores and stats. No email address, no IP address. This is written on the sign-up screen too.
 - Playing without a profile still works. You just can't use the leaderboards.
 
-The profile code is in `leaderboard/src/profiles.js`, with the tables in `leaderboard/migrations/0002_profiles.sql`. A profile's stats are: best endless score, games played (endless games) and questions right (endless and weekly together).
+The profile code is in `leaderboard/src/profiles.js`, with the tables in `leaderboard/migrations/0002_profiles.sql`. The stats page is worked out by the Worker from the saved games (`leaderboard/src/stats.js`, `GET /me/stats`), so it always matches the leaderboards. Games saved before migration `0005` don't have the big-question or weekly easy/medium detail, so they count in the totals but are left out of those particular lines.
 
 ## Files
 

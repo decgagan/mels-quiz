@@ -216,9 +216,75 @@ async function weekly() {
   ok(!r.data.scores.some((x) => x.name.endsWith(tag)), "deleting profiles removes their weekly scores too");
 }
 
+async function stats() {
+  console.log("Profile stats and the richer leaderboard rows");
+  const mk = async (n) => (await call("POST", "/profiles", { name: n + " " + tag, pin: "1111" })).data.token;
+  const s = await mk("Stat"), e = await mk("Empty");
+
+  let r = await call("GET", "/me/stats");
+  ok(r.status === 401, "stats need a sign-in");
+  r = await call("GET", "/me/stats", undefined, e);
+  const z = r.data.stats;
+  ok(r.status === 200 && z.questions.answered === 0 && z.questions.accuracy === null && z.money.total === 0, "brand new profile: zeros, no accuracy yet");
+  ok(z.endless.games === 0 && z.endless.best === null && z.endless.average === null && z.endless.longestRun === null && z.weekly.runs === 0 && z.weekly.best === null, "...and nothing made up for best / average / longest / weekly best");
+  ok(typeof z.memberSince === "string" && !isNaN(Date.parse(z.memberSince)), "member-since date is there");
+
+  // two endless runs (the first with the big question tracked), two weekly runs (one from an "older page", with no levels)
+  r = await call("POST", "/runs", run({ score: 4100, bigCorrect: 1 }), s);
+  ok(r.status === 201, "endless run with bigCorrect saves");
+  r = await call("POST", "/runs", run({ score: 3600, bigCorrect: 0 }), s);
+  ok(r.status === 201, "a run where the big one was wrong saves at the lower maximum (£3,600)");
+  r = await call("POST", "/runs", run({ score: 4100, bigCorrect: 0 }), s);
+  ok(r.status === 400, "...and not at £4,100");
+  r = await call("POST", "/runs", run({ score: 350, answered: { easy: 4, medium: 0, hard: 3 }, correct: { easy: 4, medium: 0, hard: 0 }, bigCorrect: 0, lifelines: ["phoneFriend"] }), s);
+  ok(r.status === 201, "a short run with a lifeline saves");
+  await call("POST", "/weekly/start", { slot: 0 }, s);
+  await call("POST", "/weekly/start", { slot: 1 }, s);
+  await new Promise((res) => setTimeout(res, 3300));
+  const lv = { easy: { answered: 6, correct: 5 }, medium: { answered: 4, correct: 2 } };
+  r = await call("POST", "/weekly/finish", { slot: 0, score: 900, correct: 7, wrong: 3, lifelines: ["stopClock"], levels: lv }, s);
+  ok(r.status === 200, "weekly run with levels saves (5 easy + 2 medium = £1,000, minus £50 for the lifeline = £950, so £900 is fine)");
+  r = await call("POST", "/weekly/finish", { slot: 1, score: 500, correct: 4, wrong: 6, lifelines: [] }, s);
+  ok(r.status === 200, "weekly run from an older page (no levels) still saves");
+
+  r = await call("GET", "/me/stats", undefined, s);
+  const t = r.data.stats;
+  // endless: answered easy 2+2+4=8, medium 3+3+0=6, hard 7+7+3=17; correct easy 1+1+4=6, medium 2+2=4, hard 6+6+0=12
+  ok(t.endless.games === 3 && t.endless.best === 4100 && t.endless.average === Math.round((4100 + 3600 + 350) / 3) && t.endless.longestRun === 12, "endless: games, best, average and longest run");
+  ok(t.endless.questions === 31 && t.endless.correct === 22, "endless questions answered 31, right 22");
+  ok(t.questions.answered === 31 + 20 && t.questions.correct === 22 + 11, "all questions = endless + weekly (the older weekly run still counts in the totals)");
+  ok(t.questions.accuracy === Math.round(33 / 51 * 100), "accuracy " + t.questions.accuracy + "%");
+  ok(t.money.endless === 8050 && t.money.weekly === 1400 && t.money.total === 9450, "money: endless + weekly = total");
+  ok(t.weekly.runs === 2 && t.weekly.best === 900 && t.weekly.winnings === 1400 && t.weekly.correct === 11 && t.weekly.wrong === 9, "weekly: runs, best, winnings, right and wrong");
+  ok(t.byLevel.easy.answered === 8 + 6 && t.byLevel.easy.correct === 6 + 5, "easy answered / right (the older weekly run isn't split by level, so isn't in here)");
+  ok(t.byLevel.medium.answered === 6 + 4 && t.byLevel.medium.correct === 4 + 2, "medium answered / right");
+  ok(t.byLevel.hard.answered === 17 && t.byLevel.hard.correct === 12, "hard answered / right");
+  ok(t.big.answered === 2 && t.big.correct === 1, "big 10th questions: 2 answered, 1 right (the 12-question runs; the short one had none)");
+  ok(t.lifelines.phoneFriend === 1 && t.lifelines.stopClock === 1 && t.lifelines.removeWrong === 0 && t.lifelines.total === 2, "lifelines used, per type");
+  r = await call("GET", "/me", undefined, s);
+  ok(r.data.profile.totalCorrect === t.questions.correct && r.data.profile.gamesPlayed === 3, "the old profile counters agree with the stats");
+
+  // richer leaderboard rows
+  r = await call("GET", "/leaderboard/endless?board=overall");
+  const row = r.data.scores.find((x) => x.name === "Stat " + tag);
+  ok(row && row.answered.easy === 2 && row.answered.medium === 3 && row.answered.hard === 7 && row.big === 1, "endless row: answered by level and how many were big (best run)");
+  ok(row.lifelines.length === 0, "...with its lifelines list");
+  r = await call("GET", "/weekly/leaderboard");
+  const wr = r.data.scores.filter((x) => x.name === "Stat " + tag);
+  ok(wr.length === 2 && wr[0].correct === 7 && wr[0].wrong === 3 && wr[0].lifelines.join() === "stopClock" && wr[0].noLifelines === false, "weekly row: right, wrong and lifelines used");
+  ok(wr[1].correct === 4 && wr[1].wrong === 6 && wr[1].lifelines.length === 0 && wr[1].noLifelines === true, "...and a run with no lifelines");
+
+  // deleting the profile deletes the stats with it
+  await call("POST", "/me/delete", {}, s);
+  await call("POST", "/me/delete", {}, e);
+  r = await call("GET", "/me/stats", undefined, s);
+  ok(r.status === 401, "after deleting, the profile has no stats");
+}
+
 const token = await profiles();
 await weekly();
 await endless();
+await stats();
 await call("POST", "/me/delete", {}, token);
 console.log(failures ? `\n${failures} FAILED` : "\nAll good.");
 process.exit(failures ? 1 : 0);

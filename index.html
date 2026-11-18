@@ -6,7 +6,7 @@
   <title>Mel's Quiz</title>
   <meta name="description" content="Mel's Quiz - a friendly general knowledge money game.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%9F%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
   <main class="card">
@@ -105,11 +105,7 @@
     <section id="screen-profile" class="screen" hidden>
       <h2 id="profile-title" tabindex="-1" class="center">My profile</h2>
       <p id="profile-name" class="big-name"></p>
-      <dl class="stats">
-        <div><dt>Best score</dt><dd id="stat-best">-</dd></div>
-        <div><dt>Games played</dt><dd id="stat-games">-</dd></div>
-        <div><dt>Questions right</dt><dd id="stat-correct">-</dd></div>
-      </dl>
+      <div id="stats-body" aria-live="polite"></div>
       <p class="privacy">We keep your name, your PIN (scrambled, so nobody can read it) and your scores and stats. No email address. Your name and scores show on the leaderboards.</p>
       <button id="btn-profile-switch" class="btn btn-secondary" type="button">Switch player</button>
       <button id="btn-delete" class="btn btn-danger-outline" type="button">Delete my profile</button>
@@ -217,8 +213,8 @@
 
   <p id="footer-note" class="footer">No sign-ups, no tracking. Your best winnings are saved only on this device.</p>
 
-  <script src="questions.js?v=6"></script>
-  <script src="weekly.js?v=6"></script>
-  <script src="game.js?v=6"></script>
+  <script src="questions.js?v=7"></script>
+  <script src="weekly.js?v=7"></script>
+  <script src="game.js?v=7"></script>
 </body>
 </html>

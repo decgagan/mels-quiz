@@ -5,7 +5,7 @@ The shared back end for Mel's Quiz: player profiles and the leaderboards.
 - **Worker name:** `mels-quiz-leaderboard`
 - **D1 database name:** `mels-quiz-scores`
 - Code: `src/index.js` (the front door), `src/profiles.js` (profiles and sign-in), `src/endless.js` (endless-mode games and leaderboards), `src/weekly.js` (the weekly challenge), `src/util.js` (shared helpers).
-- Database tables are made by the files in `migrations/`, in number order: `0001` the old scores table, `0002` profiles, `0003` endless-mode games, `0004` weekly challenge runs.
+- Database tables are made by the files in `migrations/`, in number order: `0001` the old scores table, `0002` profiles, `0003` endless-mode games, `0004` weekly challenge runs, `0005` a few extra details per run (big-question and weekly easy/medium counts, for the richer leaderboard rows and stats page).
 
 ## What it can do
 
@@ -14,7 +14,8 @@ The shared back end for Mel's Quiz: player profiles and the leaderboards.
 | `POST /profiles` | Create a profile: `{ "name", "pin" }`. Returns a sign-in token. |
 | `POST /login` | Sign in on a device: `{ "name", "pin" }`. Returns a token. |
 | `POST /logout` | Sign this device out. |
-| `GET /me` | The signed-in player's stats. |
+| `GET /me` | The signed-in player's name and basic counters. |
+| `GET /me/stats` | The signed-in player's full stats page (totals, accuracy, money, by difficulty, big questions, lifelines, weekly), worked out from their saved games. |
 | `POST /me/delete` | Delete the signed-in player's profile and all their scores. |
 | `POST /runs` | Save a finished endless game (signed in). |
 | `GET /leaderboard/endless?board=overall` or `board=nolifelines` | Top 10, one row per player (their best game). |
@@ -32,8 +33,8 @@ Signed-in requests send `Authorization: Bearer <token>`.
 - **PINs:** exactly 4 numbers. The PIN is never stored. Each profile stores a PBKDF2-SHA-256 hash (10,000 rounds) with its own random salt. If you want an extra secret on top, run `npx wrangler secret put PIN_PEPPER` once and type any long random phrase (set it **before** people sign up and never change it, or everyone's PIN stops working). It's optional.
 - **Wrong PINs:** after 5 wrong PINs in a row a profile is locked for 15 minutes (even the right PIN is refused during that time).
 - **Sign-in tokens:** a random 64-character token per device, stored only as a hash on the server. A device stays signed in for 400 days. Each profile keeps its newest 8 signed-in devices.
-- **Saving a game** (endless mode): the game must have finished (exactly 3 wrong answers or timeouts), the counts must add up, the score must be a multiple of £25 and no more than those right answers could win (counting the double-prize 10th questions, minus £50 per lifeline used). One game per profile per 10 seconds. Sending the same game twice only saves it once.
-- **Weekly challenge:** the week runs Monday 00:00 to the next Monday 00:00 **UK time** (Europe/London, including summer time), worked out by the Worker. A profile can **start** each of the three topics once a week (the row is saved when it starts, so a refresh can't give a retry). A finished run must be 10 questions, a multiple of £25 and no more than the right answers could win at £250 each, minus £50 per lifeline. It can't be finished within 15 seconds of starting (the game just asks the player to try saving again a moment later) or more than 3 hours after. There is one weekly board for all three topics: each finished topic run is its own row (scores are never added together), best 10 by score, shown with the player's name, topic and whether they used lifelines. Nothing is deleted at the weekend: a new week simply has a new key, so its board starts empty.
+- **Saving a game** (endless mode): the game must have finished (exactly 3 wrong answers or timeouts), the counts must add up (and, if the game says how many big questions were right, those must fit too), the score must be a multiple of £25 and no more than those right answers could win (counting the double-prize 10th questions, minus £50 per lifeline used). One game per profile per 10 seconds. Sending the same game twice only saves it once.
+- **Weekly challenge:** the week runs Monday 00:00 to the next Monday 00:00 **UK time** (Europe/London, including summer time), worked out by the Worker. A profile can **start** each of the three topics once a week (the row is saved when it starts, so a refresh can't give a retry). A finished run must be 10 questions, a multiple of £25 and no more than the right answers could win (£100 per easy, £250 per medium, or £250 each if the game didn't send the easy/medium split), minus £50 per lifeline. It can't be finished within 15 seconds of starting (the game just asks the player to try saving again a moment later) or more than 3 hours after. There is one weekly board for all three topics: each finished topic run is its own row (scores are never added together), best 10 by score, shown with the player's name, topic and whether they used lifelines. Nothing is deleted at the weekend: a new week simply has a new key, so its board starts empty.
 - **Creating profiles:** one new profile per 5 seconds per IP address (a simple best-effort limit kept in the Worker's memory).
 - Only `https://decgagan.github.io` (and `http://localhost` / `http://127.0.0.1`, for testing) can talk to it from a browser.
 - Nothing about IP addresses is stored. There is **no swear filter**.
@@ -48,7 +49,7 @@ Run these in **PowerShell**, inside the `leaderboard` folder of your copy of the
 
 **1. Get the new files.** If your copy is a git clone, run `git pull` in the main `mels-quiz` folder first. Otherwise copy the whole `src` and `migrations` folders from the new version over the ones in your `leaderboard` folder.
 
-**2. Add the new tables to the real database** (this applies `0002`, `0003` and `0004` in one go) (note `--remote`; answer `y` when it asks to continue). It only adds tables: your old scores are not touched.
+**2. Add the new tables to the real database** (this applies whatever hasn't been applied yet; at the moment that is `0005`) (note `--remote`; answer `y` when it asks to continue). It only adds three empty optional columns: nothing existing is changed and no scores are touched. **Do this before step 3**, because the new Worker saves into those columns.
 
 ```
 npx wrangler d1 migrations apply mels-quiz-scores --remote

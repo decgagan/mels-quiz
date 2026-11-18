@@ -39,6 +39,21 @@ ok(validateRun({ ...base(), answered: { easy: 2.5, medium: 3, hard: 7 } }).error
 ok(validateRun({ ...base(), answered: { easy: 3000, medium: 0, hard: 0 }, correct: { easy: 2997, medium: 0, hard: 0 } }).error, "more than 2000 questions refused");
 ok(validateRun(null).error && validateRun([]).error, "non-objects refused");
 
+console.log("Endless runs: big (every 10th) question detail");
+// base(): 12 questions, so exactly one big question (the 10th). Hard 7 (6 right) includes it.
+const withBig = (bigCorrect, o = {}) => ({ ...base(), bigCorrect, ...o });
+ok(!validateRun(withBig(1, { score: most })).error, "big one right: the full amount is accepted");
+ok(validateRun(withBig(0, { score: most })).error, "big one wrong: the bonus can't be claimed any more");
+ok(!validateRun(withBig(0, { score: most - (BIG_PRIZE - PRIZES.hard) })).error, "...but the rest is fine");
+ok(validateRun(withBig(2, { score: 0 })).error, "more big ones right than there were is refused");
+ok(validateRun(withBig(-1)).error && validateRun(withBig(0.5)).error && validateRun(withBig("1")).error, "negative, fractional and text refused");
+ok(validateRun(withBig(0, { correct: { easy: 1, medium: 2, hard: 7 }, answered: { easy: 2, medium: 3, hard: 7 } })).error, "(still must end on 3 wrong)");
+// 3 wrong answers, all of them easy/medium, so the big one (a hard question) must have been right
+ok(validateRun({ ...base(), answered: { easy: 3, medium: 3, hard: 6 }, correct: { easy: 1, medium: 2, hard: 6 }, bigCorrect: 0, score: 0 }).error, "a wrong big question needs a wrong hard answer to go with it");
+ok(!validateRun({ ...base(), answered: { easy: 3, medium: 3, hard: 6 }, correct: { easy: 1, medium: 2, hard: 6 }, bigCorrect: 1, score: 0 }).error, "...and is fine when the big one was right");
+ok(!validateRun(base()).error, "an older page that doesn't send bigCorrect still saves");
+ok(validateRun(withBig(null)).run.bigCorrect === null && validateRun(withBig(1)).run.bigCorrect === 1, "bigCorrect is kept (or null)");
+
 console.log("Weeks (UK time)");
 const wk = (iso) => weekInfo(Date.parse(iso));
 ok(wk("2026-11-18T19:00:00Z").key === "2026-11-16", "Wednesday 18 Nov 2026 is in the week of Monday 16 Nov");
@@ -68,6 +83,19 @@ ok(validateFinish(wrun({ slot: 3 })).error && validateFinish(wrun({ slot: -1 }))
 ok(validateFinish(wrun({ score: 30 })).error, "score must be a multiple of 25");
 ok(!validateFinish(wrun({ correct: 0, wrong: 10, score: 0 })).error, "£0 with nothing right is fine");
 ok(validateFinish(wrun({ correct: 0, wrong: 10, score: 25 })).error, "...but £25 with nothing right isn't");
+
+console.log("Weekly runs: easy / medium detail");
+const lv = (ae, ce, cm) => ({ easy: { answered: ae, correct: ce }, medium: { answered: 10 - ae, correct: cm } });
+// 6 right = 4 easy (£100) + 2 medium (£250) = £900
+ok(!validateFinish(wrun({ score: 900, levels: lv(6, 4, 2) })).error, "with the levels, the most 4 easy + 2 medium can win is £900");
+ok(validateFinish(wrun({ score: 925, levels: lv(6, 4, 2) })).error, "...and £925 is refused (the old flat limit would have allowed it)");
+ok(!validateFinish(wrun({ score: 850, levels: lv(6, 4, 2), lifelines: ["phoneFriend"] })).error, "a lifeline comes off that");
+ok(validateFinish(wrun({ score: 900, levels: lv(6, 4, 3) })).error, "level counts must add up to the right answers");
+ok(validateFinish(wrun({ score: 900, levels: lv(6, 7, 2) })).error, "can't get more easy right than were easy");
+ok(validateFinish(wrun({ score: 900, levels: { easy: { answered: 6, correct: 4 }, medium: { answered: 5, correct: 2 } } })).error, "easy + medium questions must make 10");
+ok(validateFinish(wrun({ score: 900, levels: "lots" })).error, "nonsense levels refused");
+ok(validateFinish(wrun({ score: 900, levels: lv(6, 4, 2) })).run.levels.correctEasy === 4, "levels are kept");
+ok(validateFinish(wrun({ score: 900 })).run.levels === null, "an older page without levels still saves (levels null)");
 
 console.log(failures ? `\n${failures} FAILED` : "\nAll good.");
 process.exit(failures ? 1 : 0);

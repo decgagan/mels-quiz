@@ -1,7 +1,8 @@
 // Endless mode (the main game): each finished run is saved against a profile.
 //
 //   POST /runs                        (signed in)  -> 201 { ok, saved, newBest, profile, rank, rankNoLifelines, scores }
-//        body { runId, score, answered: {easy, medium, hard}, correct: {easy, medium, hard}, lifelines: [..] }
+//        body { runId, score, answered: {easy, medium, hard}, correct: {easy, medium, hard}, bigCorrect, lifelines: [..] }
+//        (hard counts include the big every-10th questions; bigCorrect says how many of those were right. It's optional so older pages still save.)
 //   GET  /leaderboard/endless?board=overall|nolifelines  -> { ok, board, scores: [ top 10, one row per player ] }
 //
 // Keep the numbers in the "game rules" block in step with CONFIG at the top of game.js.
@@ -56,6 +57,15 @@ export function validateRun(body) {
   if (totalAnswered - totalCorrect !== LIVES) return { error: "That run wasn't finished." };
   const bigCount = Math.floor(totalAnswered / BIG_EVERY);   // the 10th, 20th... questions were all hard
   if (answered.hard < bigCount) return { error: "Those counts don't add up." };
+  // How many big questions were right (optional: a page from before this was added doesn't send it).
+  let bigCorrect = null;
+  if (body.bigCorrect !== undefined && body.bigCorrect !== null) {
+    if (!wholeNumber(body.bigCorrect, MAX_QUESTIONS)) return { error: "The big question count isn't valid." };
+    bigCorrect = body.bigCorrect;
+    const bigWrong = bigCount - bigCorrect;
+    // The big ones are hard questions, so they can't be more than the hard ones right, and a wrong big one is a wrong hard one.
+    if (bigWrong < 0 || bigCorrect > correct.hard || bigWrong > answered.hard - correct.hard) return { error: "Those big question counts don't add up." };
+  }
 
   if (!Array.isArray(body.lifelines) || body.lifelines.length > LIFELINES.length) return { error: "Lifelines must be a short list." };
   const lifelines = [];
@@ -69,11 +79,11 @@ export function validateRun(body) {
   if (!wholeNumber(score, MAX_ENDLESS_SCORE)) return { error: "Score must be a whole number." };
   if (score % SCORE_STEP !== 0) return { error: `Score must be a multiple of ${SCORE_STEP}.` };
   const mostEarnable = correct.easy * PRIZES.easy + correct.medium * PRIZES.medium + correct.hard * PRIZES.hard
-    + Math.min(correct.hard, bigCount) * (BIG_PRIZE - PRIZES.hard)
+    + (bigCorrect === null ? Math.min(correct.hard, bigCount) : bigCorrect) * (BIG_PRIZE - PRIZES.hard)
     - lifelines.length * LIFELINE_COST;
   if (score > mostEarnable) return { error: "That score is higher than those answers could win." };
 
-  return { run: { runId: body.runId, score, answered, correct, lifelines, totalCorrect } };
+  return { run: { runId: body.runId, score, answered, correct, bigCorrect, lifelines, totalCorrect } };
 }
 
 const SELECT_ROWS = `
@@ -95,7 +105,9 @@ export async function topEndless(env, board, meId) {
     name: r.name,
     score: r.score,
     date: r.date,
+    // hard includes the big every-10th questions; `big` is how many of them there were
     answered: { easy: r.answered_easy, medium: r.answered_medium, hard: r.answered_hard },
+    big: Math.floor((r.answered_easy + r.answered_medium + r.answered_hard) / BIG_EVERY),
     lifelines: r.lifelines ? r.lifelines.split(",") : [],
     me: meId !== undefined && meId !== null && r.profile_id === meId,
   }));
@@ -162,10 +174,10 @@ export async function handlePostRun(request, env) {
   const newBest = run.score > me.best_endless;
   try {
     await env.DB.batch([
-      env.DB.prepare(`INSERT INTO endless_runs (profile_id, run_id, score, answered_easy, answered_medium, answered_hard, correct_easy, correct_medium, correct_hard, lifelines, created_at)
-                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`)
+      env.DB.prepare(`INSERT INTO endless_runs (profile_id, run_id, score, answered_easy, answered_medium, answered_hard, correct_easy, correct_medium, correct_hard, lifelines, created_at, big_correct)
+                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`)
         .bind(me.id, run.runId, run.score, run.answered.easy, run.answered.medium, run.answered.hard,
-          run.correct.easy, run.correct.medium, run.correct.hard, run.lifelines.join(","), new Date().toISOString()),
+          run.correct.easy, run.correct.medium, run.correct.hard, run.lifelines.join(","), new Date().toISOString(), run.bigCorrect),
       env.DB.prepare("UPDATE profiles SET games_played = games_played + 1, total_correct = total_correct + ?2, best_endless = MAX(best_endless, ?3) WHERE id = ?1")
         .bind(me.id, run.totalCorrect, run.score),
     ]);

@@ -2,7 +2,9 @@
 //
 //   GET  /weekly/state                (sign in optional) -> { ok, week: { key, endsAt }, runs: [ { slot, status, score, correct, wrong, noLifelines } ] }
 //   POST /weekly/start   { slot }     (signed in) -> 201 { ok, week, slot }   or 409 if that topic was already started this week
-//   POST /weekly/finish  { slot, score, correct, wrong, lifelines } (signed in) -> { ok, score, rank, profile, scores }
+//   POST /weekly/finish  { slot, score, correct, wrong, lifelines, levels } (signed in)
+//        levels (optional, so older pages still save) = { easy: { answered, correct }, medium: { answered, correct } }
+//        -> { ok, score, rank, profile, scores }
 //   GET  /weekly/leaderboard          -> { ok, week, scores: [ top 10 runs this week, all topics together, each with its topic number ] }
 //
 // The week is worked out HERE, from the Worker's clock, in UK time (Europe/London): it runs from Monday 00:00 to
@@ -16,6 +18,7 @@ import { LIFELINES, LIFELINE_COST, SCORE_STEP } from "./endless.js";
 // ---- game rules (must match weekly.js and CONFIG.weekly in game.js) ----
 export const WEEKLY_SLOTS = 3;             // topics a week
 export const WEEKLY_QUESTIONS = 10;        // questions in each
+export const WEEKLY_PRIZES = { easy: 100, medium: 250 };   // what a right answer wins (the same as CONFIG.levels in game.js)
 export const WEEKLY_MAX_PRIZE = 250;       // the biggest prize a weekly question is worth (medium)
 // ---- sanity limits ----
 const DEFAULT_MIN_RUN_SECONDS = 15;        // ten questions can't honestly be answered faster than this (env WEEKLY_MIN_SECONDS overrides, for tests)
@@ -78,8 +81,17 @@ export function validateFinish(body) {
   lifelines.sort((a, b) => LIFELINES.indexOf(a) - LIFELINES.indexOf(b));
   if (!whole(score, WEEKLY_QUESTIONS * WEEKLY_MAX_PRIZE)) return { error: "Score must be a whole number." };
   if (score % SCORE_STEP !== 0) return { error: `Score must be a multiple of ${SCORE_STEP}.` };
-  if (score > correct * WEEKLY_MAX_PRIZE - lifelines.length * LIFELINE_COST) return { error: "That score is higher than those answers could win." };
-  return { run: { slot: body.slot, score, correct, wrong, lifelines } };
+  let levels = null, mostEarnable = correct * WEEKLY_MAX_PRIZE - lifelines.length * LIFELINE_COST;
+  if (body.levels !== undefined && body.levels !== null) {
+    const l = body.levels;
+    const good = (o) => o && typeof o === "object" && whole(o.answered, WEEKLY_QUESTIONS) && whole(o.correct, WEEKLY_QUESTIONS) && o.correct <= o.answered;
+    if (!l || typeof l !== "object" || !good(l.easy) || !good(l.medium)) return { error: "The easy and medium counts aren't valid." };
+    if (l.easy.answered + l.medium.answered !== WEEKLY_QUESTIONS || l.easy.correct + l.medium.correct !== correct) return { error: "Those easy and medium counts don't add up." };
+    levels = { answeredEasy: l.easy.answered, correctEasy: l.easy.correct, correctMedium: l.medium.correct };
+    mostEarnable = l.easy.correct * WEEKLY_PRIZES.easy + l.medium.correct * WEEKLY_PRIZES.medium - lifelines.length * LIFELINE_COST;
+  }
+  if (score > mostEarnable) return { error: "That score is higher than those answers could win." };
+  return { run: { slot: body.slot, score, correct, wrong, lifelines, levels } };
 }
 
 // ---------------------------------------------------------------- handlers
@@ -91,6 +103,7 @@ function runJson(r) {
     correct: r.correct,
     wrong: r.wrong,
     noLifelines: r.lifelines === "",
+    lifelines: r.lifelines ? r.lifelines.split(",") : [],
   };
 }
 
@@ -134,13 +147,13 @@ export async function handleStart(request, env) {
 // player can appear up to three times (once per topic). Scores are never added together.
 async function topWeekly(env, weekKey, meId) {
   const { results } = await env.DB
-    .prepare(`SELECT p.name, w.slot, w.score, w.correct, w.lifelines, w.profile_id
+    .prepare(`SELECT p.name, w.slot, w.score, w.correct, w.wrong, w.lifelines, w.profile_id
               FROM weekly_runs w JOIN profiles p ON p.id = w.profile_id
               WHERE w.week_key = ?1 AND w.finished_at IS NOT NULL AND w.score > 0
               ORDER BY w.score DESC, w.finished_at ASC, w.id ASC LIMIT ?2`)
     .bind(weekKey, TOP_N)
     .all();
-  return results.map((r) => ({ name: r.name, slot: r.slot, score: r.score, correct: r.correct, noLifelines: r.lifelines === "", me: meId !== undefined && meId !== null && r.profile_id === meId }));
+  return results.map((r) => ({ name: r.name, slot: r.slot, score: r.score, correct: r.correct, wrong: r.wrong, noLifelines: r.lifelines === "", lifelines: r.lifelines ? r.lifelines.split(",") : [], me: meId !== undefined && meId !== null && r.profile_id === meId }));
 }
 
 export async function handleLeaderboard(request, env) {
@@ -192,8 +205,9 @@ export async function handleFinish(request, env) {
   if (seconds > MAX_RUN_MINUTES * 60) return fail(request, 400, "That run was open for too long to count.");
 
   const done = await env.DB.batch([
-    env.DB.prepare("UPDATE weekly_runs SET finished_at = ?2, score = ?3, correct = ?4, wrong = ?5, lifelines = ?6 WHERE id = ?1 AND finished_at IS NULL")
-      .bind(open.id, new Date().toISOString(), run.score, run.correct, run.wrong, run.lifelines.join(",")),
+    env.DB.prepare("UPDATE weekly_runs SET finished_at = ?2, score = ?3, correct = ?4, wrong = ?5, lifelines = ?6, answered_easy = ?7, correct_easy = ?8, correct_medium = ?9 WHERE id = ?1 AND finished_at IS NULL")
+      .bind(open.id, new Date().toISOString(), run.score, run.correct, run.wrong, run.lifelines.join(","),
+        run.levels ? run.levels.answeredEasy : null, run.levels ? run.levels.correctEasy : null, run.levels ? run.levels.correctMedium : null),
   ]);
   if (done[0].meta.changes === 1) {
     await env.DB.prepare("UPDATE profiles SET total_correct = total_correct + ?2 WHERE id = ?1").bind(me.id, run.correct).run();

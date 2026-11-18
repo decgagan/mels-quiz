@@ -41,9 +41,10 @@ var CONFIG = {
   // Ask Dec is £50 (not £40) so every possible score stays a multiple of £25,
   // which the shared leaderboard still requires.
   lifelines: {
-    removeWrong: { label: "Remove a wrong answer", cost: 50 },
-    stopClock:   { label: "Stop the clock",        cost: 50 },
-    phoneFriend: { label: "Ask Dec",               cost: 50 }
+    // `icon` is the little picture shown next to scores on the leaderboards and on the profile page.
+    removeWrong: { label: "Remove a wrong answer", cost: 50, icon: "✂️" },
+    stopClock:   { label: "Stop the clock",        cost: 50, icon: "⏱️" },
+    phoneFriend: { label: "Ask Dec",               cost: 50, icon: "📞" }
   },
 
   // Ask Dec is a gamble. The three odds should add up to 1.
@@ -83,9 +84,9 @@ var CONFIG = {
 
   // ---- game state
   var money, asked, pools, usedLifelines, current, currentLevel, currentPrize, currentBig, lastQuestion;
-  var lives, answeredBy, correctBy, runId, lastRun;
+  var lives, answeredBy, correctBy, bigCorrect, runId, lastRun;
   var mode = "endless";            // "endless" or "weekly"
-  var weeklyState = null, weeklyTopic = null, weeklySlot = 0, wCorrect = 0, wWrong = 0;
+  var weeklyState = null, weeklyTopic = null, weeklySlot = 0, wCorrect = 0, wWrong = 0, wLevels = null;
   var answered, endReason;
   // timer state
   var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false;
@@ -157,6 +158,7 @@ var CONFIG = {
     endReason = "";
     answeredBy = { easy: 0, medium: 0, hard: 0 };
     correctBy = { easy: 0, medium: 0, hard: 0 };
+    bigCorrect = 0;
     runId = makeRunId();
     lastRun = null;
     pools = {};
@@ -526,8 +528,10 @@ var CONFIG = {
     var oops = timedOut ? "⏰ Time's up!" : "✘ " + pick(CONSOLATIONS);
     var reveal = " The right answer was: " + current.answer + (/[.!?]$/.test(current.answer) ? "" : ".");
     if (mode === "weekly") {
+      wLevels[currentLevel.key].answered++;
       if (right) {
         wCorrect++;
+        wLevels[currentLevel.key].correct++;
         money += currentPrize;
         fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
         fb.className = "feedback good";
@@ -543,6 +547,7 @@ var CONFIG = {
       answeredBy[currentLevel.key]++;
       if (right) {
         correctBy[currentLevel.key]++;
+        if (currentBig) bigCorrect++;
         money += currentPrize;
         fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
         fb.className = "feedback good";
@@ -596,6 +601,7 @@ var CONFIG = {
       score: money,
       answered: { easy: answeredBy.easy, medium: answeredBy.medium, hard: answeredBy.hard },
       correct: { easy: correctBy.easy, medium: correctBy.medium, hard: correctBy.hard },
+      bigCorrect: bigCorrect,
       lifelines: Object.keys(CONFIG.lifelines).filter(function (k) { return usedLifelines[k]; }),
       kind: "endless", saved: false, saving: false, result: null
     };
@@ -656,17 +662,45 @@ var CONFIG = {
     return "Sorry, " + doing + " isn't working just now. Please try again in a little while.";
   }
 
-  // How a row's mix of questions is described.
-  function mixBadge(answered) {
-    var total = answered ? answered.easy + answered.medium + answered.hard : 0;
-    if (!total) return null;
-    if (answered.hard / total >= 0.5) return { text: "Mostly hard", cls: "badge-hard" };
-    if (answered.easy / total >= 0.5) return { text: "Mostly easy", cls: "badge-easy" };
-    return { text: "Mixed", cls: "badge-mixed" };
-  }
-
   function lifelineNames(keys) {
     return keys.map(function (k) { return CONFIG.lifelines[k] ? CONFIG.lifelines[k].label : k; });
+  }
+
+  // "12 easy · 5 medium · 3 hard · 2 big" with each part in its own colour. parts: [[count, word, cssClass] ...]
+  function mixLine(parts) {
+    var line = document.createElement("span");
+    line.className = "board-mix";
+    parts.filter(Boolean).forEach(function (p, i) {
+      if (i > 0) line.appendChild(document.createTextNode(" · "));
+      var part = document.createElement("span");
+      part.className = "mix mix-" + p[2];
+      part.textContent = p[0] + " " + p[1];
+      line.appendChild(part);
+    });
+    return line;
+  }
+
+  // "Lifelines: ✂️ 📞" (little icons, each with its name for screen readers and on hover), or "No lifelines".
+  function lifelineLine(list, noLifelines) {
+    var line = document.createElement("span");
+    line.className = "board-lifelines";
+    if (!list) list = noLifelines ? [] : null;      // an old Worker only says whether any were used
+    if (list && list.length === 0) {
+      line.textContent = "No lifelines";
+      return line;
+    }
+    if (!list) { line.textContent = "Used lifelines"; return line; }
+    line.setAttribute("aria-label", "Lifelines used: " + lifelineNames(list).join(", "));
+    line.title = "Used: " + lifelineNames(list).join(", ");
+    line.appendChild(document.createTextNode("Lifelines: "));
+    list.forEach(function (k) {
+      var ic = document.createElement("span");
+      ic.className = "ll-icon";
+      ic.setAttribute("aria-hidden", "true");
+      ic.textContent = CONFIG.lifelines[k] ? CONFIG.lifelines[k].icon : "?";
+      line.appendChild(ic);
+    });
+    return line;
   }
 
   // Player names are untrusted: they are only ever put on the page with textContent, never innerHTML.
@@ -697,20 +731,13 @@ var CONFIG = {
       var meta = document.createElement("span");
       meta.className = "board-meta";
       if (kind === "endless") {
-        var badge = mixBadge(row.answered);
-        if (badge) {
-          var pill = document.createElement("span");
-          pill.className = "badge " + badge.cls;
-          pill.textContent = badge.text;
-          meta.appendChild(pill);
-        }
-        var qn = row.answered ? row.answered.easy + row.answered.medium + row.answered.hard : 0;
-        var tail = document.createElement("span");
-        tail.className = "board-detail";
-        var ll = row.lifelines || [];
-        tail.textContent = qn + " questions · " + (ll.length ? ll.length + (ll.length === 1 ? " lifeline" : " lifelines") : "no lifelines");
-        tail.title = ll.length ? "Used: " + lifelineNames(ll).join(", ") : "No lifelines used";
-        meta.appendChild(tail);
+        // e.g. "12 easy · 5 medium · 3 hard · 2 big": every question that run answered, by difficulty.
+        // `answered.hard` includes the big every-10th ones, so they're taken off the hard count and shown separately.
+        var a = row.answered || { easy: 0, medium: 0, hard: 0 };
+        var big = Math.min(row.big || 0, a.hard);
+        meta.appendChild(mixLine([
+          [a.easy, "easy", "easy"], [a.medium, "medium", "medium"], [a.hard - big, "hard", "hard"], big > 0 ? [big, "big", "big"] : null
+        ]));
       } else {
         // The one weekly board mixes all three topics, so each row says which topic it was for.
         var content = weekKey ? weekContent(weekKey) : null;
@@ -723,9 +750,11 @@ var CONFIG = {
         }
         var wd = document.createElement("span");
         wd.className = "board-detail";
-        wd.textContent = row.correct + " of " + CONFIG.weekly.questions + " right" + (row.noLifelines ? " · no lifelines" : "");
+        var wrong = (typeof row.wrong === "number") ? row.wrong : CONFIG.weekly.questions - row.correct;
+        wd.textContent = row.correct + "/" + CONFIG.weekly.questions + " right · " + wrong + " wrong";
         meta.appendChild(wd);
       }
+      meta.appendChild(lifelineLine(row.lifelines, row.noLifelines));
       if (meta.childNodes.length) who.appendChild(meta);
       if (row.me) {
         var tag = document.createElement("span");
@@ -853,8 +882,8 @@ var CONFIG = {
     $("btn-end-retry").hidden = true;
     var weekly = (run.kind === "weekly");
     var request = weekly
-      ? apiRequest("POST", "/weekly/finish", { slot: run.slot, score: run.score, correct: run.correct, wrong: run.wrong, lifelines: run.lifelines })
-      : apiRequest("POST", "/runs", { runId: run.runId, score: run.score, answered: run.answered, correct: run.correct, lifelines: run.lifelines });
+      ? apiRequest("POST", "/weekly/finish", { slot: run.slot, score: run.score, correct: run.correct, wrong: run.wrong, lifelines: run.lifelines, levels: run.levels })
+      : apiRequest("POST", "/runs", { runId: run.runId, score: run.score, answered: run.answered, correct: run.correct, bigCorrect: run.bigCorrect, lifelines: run.lifelines });
     request.then(function (data) {
       run.saving = false; run.saved = true; run.result = data;
       me = data.profile;
@@ -1029,15 +1058,144 @@ var CONFIG = {
     $("delete-confirm").hidden = true;
     $("btn-delete").hidden = false;
     $("delete-msg").textContent = "";
-    renderStats();
     show("profile");
     $("profile-title").focus();
-    refreshMe().then(function () { if (!screens.profile.hidden) renderStats(); });
+    loadStats();
+    refreshMe();
   }
-  function renderStats() {
-    $("stat-best").textContent = me ? fmt(me.bestEndless) : "-";
-    $("stat-games").textContent = me ? String(me.gamesPlayed) : "-";
-    $("stat-correct").textContent = me ? String(me.totalCorrect) : "-";
+  // ---- the stats page. Everything is worked out by the Worker (GET /me/stats) from the player's saved runs.
+  var statsToken = 0;
+  function loadStats() {
+    var box = $("stats-body");
+    var mine = ++statsToken;
+    box.innerHTML = "";
+    var wait = document.createElement("p");
+    wait.className = "small-note";
+    wait.textContent = "Loading your stats...";
+    box.appendChild(wait);
+    apiRequest("GET", "/me/stats").then(function (data) {
+      if (mine === statsToken) renderStats(data.stats);
+    }).catch(function (err) {
+      if (mine !== statsToken) return;
+      box.innerHTML = "";
+      var msg = document.createElement("p");
+      msg.className = "board-error";
+      msg.textContent = friendlyError(err, "the stats page");
+      var retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "btn btn-secondary";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", loadStats);
+      box.appendChild(msg);
+      box.appendChild(retry);
+    });
+  }
+
+  function dash(v, format) { return (v === null || v === undefined) ? "\u2014" : (format ? format(v) : String(v)); }
+  function pct(part, whole) { return whole > 0 ? Math.round(part / whole * 100) + "%" : "\u2014"; }
+  function num(n) { return Number(n || 0).toLocaleString("en-GB"); }
+
+  function statTiles(items) {
+    var dl = document.createElement("dl");
+    dl.className = "stats";
+    items.forEach(function (it) {
+      var div = document.createElement("div");
+      if (it.wide) div.className = "wide";
+      var dt = document.createElement("dt");
+      dt.textContent = it.label;
+      var dd = document.createElement("dd");
+      dd.textContent = it.value;
+      if (it.small) dd.className = "small";
+      if (it.sub) {
+        var sub = document.createElement("span");
+        sub.className = "sub";
+        sub.textContent = it.sub;
+        dd.appendChild(sub);
+      }
+      div.appendChild(dt); div.appendChild(dd);
+      dl.appendChild(div);
+    });
+    return dl;
+  }
+
+  function statRows(items) {
+    var ul = document.createElement("ul");
+    ul.className = "stat-rows";
+    items.forEach(function (it) {
+      var li = document.createElement("li");
+      var name = document.createElement("span");
+      name.className = "sr-name";
+      name.textContent = it.name;
+      var val = document.createElement("span");
+      val.className = "sr-val";
+      val.textContent = it.value;
+      if (it.sub) {
+        var small = document.createElement("small");
+        small.textContent = it.sub;
+        val.appendChild(small);
+      }
+      li.appendChild(name); li.appendChild(val);
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  function statHeading(text) {
+    var h = document.createElement("h3");
+    h.className = "stats-heading";
+    h.textContent = text;
+    return h;
+  }
+
+  function renderStats(st) {
+    var box = $("stats-body");
+    box.innerHTML = "";
+    var q = st.questions, m = st.money, e = st.endless, w = st.weekly, lv = st.byLevel, ll = st.lifelines;
+    var since = st.memberSince ? new Date(st.memberSince) : null;
+    var sinceText = since && !isNaN(since.getTime())
+      ? since.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }) : "\u2014";
+
+    box.appendChild(statTiles([
+      { label: "Questions answered", value: num(q.answered) },
+      { label: "Questions right", value: num(q.correct) },
+      { label: "Accuracy", value: q.accuracy === null ? "\u2014" : q.accuracy + "%" },
+      { label: "Money earned", value: fmt(m.total), sub: "all your games" },
+      { label: "Member since", value: sinceText, small: true, wide: true }
+    ]));
+
+    box.appendChild(statHeading("Endless game"));
+    box.appendChild(statTiles([
+      { label: "Best score", value: dash(e.best, fmt) },
+      { label: "Average score", value: dash(e.average, fmt) },
+      { label: "Games played", value: num(e.games) },
+      { label: "Longest run", value: dash(e.longestRun), sub: e.longestRun === null ? "" : (e.longestRun === 1 ? "question" : "questions") }
+    ]));
+
+    box.appendChild(statHeading("Questions by difficulty"));
+    var rows = [];
+    CONFIG.levels.forEach(function (level) {
+      var d = lv[level.key] || { answered: 0, correct: 0 };
+      rows.push({ name: level.label, value: d.correct + " of " + d.answered + " right", sub: pct(d.correct, d.answered) });
+    });
+    rows.push({ name: "Big 10th questions", value: st.big.correct + " of " + st.big.answered + " right", sub: pct(st.big.correct, st.big.answered) });
+    box.appendChild(statRows(rows));
+    var note = document.createElement("p");
+    note.className = "stats-note";
+    note.textContent = "Hard includes the big ones. Weekly challenge questions count as easy or medium.";
+    box.appendChild(note);
+
+    box.appendChild(statHeading("Lifelines used"));
+    var lrows = Object.keys(CONFIG.lifelines).map(function (k) {
+      return { name: CONFIG.lifelines[k].icon + " " + CONFIG.lifelines[k].label, value: num(ll[k]) + (ll[k] === 1 ? " time" : " times") };
+    });
+    box.appendChild(statRows(lrows));
+
+    box.appendChild(statHeading("Weekly challenge"));
+    box.appendChild(statTiles([
+      { label: "Runs played", value: num(w.runs) },
+      { label: "Best weekly score", value: dash(w.best, fmt) },
+      { label: "Total weekly winnings", value: fmt(w.winnings), wide: true }
+    ]));
   }
 
   function deleteProfile() {
@@ -1234,6 +1392,7 @@ var CONFIG = {
     endReason = "";
     wCorrect = 0;
     wWrong = 0;
+    wLevels = { easy: { answered: 0, correct: 0 }, medium: { answered: 0, correct: 0 } };
     lastRun = null;
     weeklyNext();
   }
@@ -1262,6 +1421,7 @@ var CONFIG = {
     $("btn-again").textContent = "Back to the weekly challenge";
     lastRun = {
       kind: "weekly", slot: weeklySlot, score: money, correct: wCorrect, wrong: wWrong,
+      levels: wLevels,
       lifelines: Object.keys(CONFIG.lifelines).filter(function (k) { return usedLifelines[k]; }),
       saved: false, saving: false, result: null
     };
