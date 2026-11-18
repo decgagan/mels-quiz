@@ -16,8 +16,16 @@ export const LIVES = 3;                                   // a run ends on the 3
 export const PRIZES = { easy: 100, medium: 250, hard: 500 };
 export const BIG_EVERY = 10;                              // every 10th question is a forced hard one...
 export const BIG_PRIZE = 1000;                            // ...worth this much
-export const LIFELINES = ["removeWrong", "stopClock", "phoneFriend"];
+export const LIFELINES = ["removeWrong", "stopClock", "phoneFriend", "hint", "swap", "double"];
+// What each lifeline costs (CONFIG.lifelines in game.js). Unlisted ones (none today) would cost LIFELINE_COST.
+export const LIFELINE_COSTS = { removeWrong: 50, stopClock: 50, phoneFriend: 50, hint: 25, swap: 50, double: 25 };
 export const LIFELINE_COST = 50;
+/** What a list of used lifelines cost in total. */
+export function lifelinesCost(list) {
+  return list.reduce((sum, l) => sum + (LIFELINE_COSTS[l] ?? LIFELINE_COST), 0);
+}
+// "Double or nothing" doubles ONE question's prize when it's right, so it can add at most the biggest prize
+// among the questions answered right. (When it goes wrong the bank drops to £0, which only lowers a score.)
 export const SCORE_STEP = 25;                             // every amount in the game is a multiple of £25
 // ---- sanity limits ----
 export const MAX_QUESTIONS = 2000;                        // in one run
@@ -37,6 +45,18 @@ function wholeNumber(n, max) {
  * Because the game only sends a run when it is over, we know exactly how many answers were wrong (LIVES),
  * and the score can't be more than the right answers could have earned, minus what the lifelines cost.
  */
+/** Checks a list of lifelines: known names, each at most once. Returns { lifelines } (in the standard order) or { error }. */
+export function cleanLifelines(list) {
+  if (!Array.isArray(list) || list.length > LIFELINES.length) return { error: "Lifelines must be a short list." };
+  const lifelines = [];
+  for (const l of list) {
+    if (!LIFELINES.includes(l) || lifelines.includes(l)) return { error: "Unknown lifeline." };
+    lifelines.push(l);
+  }
+  lifelines.sort((a, b) => LIFELINES.indexOf(a) - LIFELINES.indexOf(b));
+  return { lifelines };
+}
+
 export function validateRun(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { error: "Send a JSON object." };
   if (typeof body.runId !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(body.runId)) return { error: "That run has no valid id." };
@@ -69,20 +89,19 @@ export function validateRun(body) {
     if (bigWrong < 0 || bigCorrect > correct.hard || bigWrong > answered.hard - correct.hard) return { error: "Those big question counts don't add up." };
   }
 
-  if (!Array.isArray(body.lifelines) || body.lifelines.length > LIFELINES.length) return { error: "Lifelines must be a short list." };
-  const lifelines = [];
-  for (const l of body.lifelines) {
-    if (!LIFELINES.includes(l) || lifelines.includes(l)) return { error: "Unknown lifeline." };
-    lifelines.push(l);
-  }
-  lifelines.sort((a, b) => LIFELINES.indexOf(a) - LIFELINES.indexOf(b));
+  const ll = cleanLifelines(body.lifelines);
+  if (ll.error) return ll;
+  const lifelines = ll.lifelines;
 
   const score = body.score;
   if (!wholeNumber(score, MAX_ENDLESS_SCORE)) return { error: "Score must be a whole number." };
   if (score % SCORE_STEP !== 0) return { error: `Score must be a multiple of ${SCORE_STEP}.` };
+  const bigRight = bigCorrect === null ? Math.min(correct.hard, bigCount) : bigCorrect;
+  const biggestRight = bigRight > 0 ? BIG_PRIZE : correct.hard > 0 ? PRIZES.hard : correct.medium > 0 ? PRIZES.medium : correct.easy > 0 ? PRIZES.easy : 0;
   const mostEarnable = correct.easy * PRIZES.easy + correct.medium * PRIZES.medium + correct.hard * PRIZES.hard
-    + (bigCorrect === null ? Math.min(correct.hard, bigCount) : bigCorrect) * (BIG_PRIZE - PRIZES.hard)
-    - lifelines.length * LIFELINE_COST;
+    + bigRight * (BIG_PRIZE - PRIZES.hard)
+    + (lifelines.includes("double") ? biggestRight : 0)
+    - lifelinesCost(lifelines);
   if (score > mostEarnable) return { error: "That score is higher than those answers could win." };
 
   return { run: { runId: body.runId, score, answered, correct, bigCorrect, lifelines, totalCorrect } };

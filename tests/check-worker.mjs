@@ -29,6 +29,21 @@ ok(!validateRun({ ...base(), score: most - 50, lifelines: ["phoneFriend"] }).err
 ok(validateRun({ ...base(), score: most, lifelines: ["phoneFriend"] }).error, "...so the full amount is refused with a lifeline");
 ok(validateRun({ ...base(), lifelines: ["phoneFriend", "phoneFriend"] }).error, "same lifeline twice refused");
 ok(validateRun({ ...base(), lifelines: ["telepathy"] }).error, "unknown lifeline refused");
+console.log("New lifelines: Hint (£25), Swap the question (£50), Double or nothing (£25)");
+ok(!validateRun({ ...base(), score: most - 25, lifelines: ["hint"] }).error, "Hint costs £25 off the maximum");
+ok(validateRun({ ...base(), score: most, lifelines: ["hint"] }).error, "...so the full amount is refused with a Hint");
+ok(!validateRun({ ...base(), score: most - 50, lifelines: ["swap"] }).error && validateRun({ ...base(), score: most - 25, lifelines: ["swap"] }).error, "Swap costs £50 off the maximum");
+// Double: one right answer can be doubled, at most the biggest prize won (the big £1,000 question here)
+ok(!validateRun({ ...base(), score: most + BIG_PRIZE - 25, lifelines: ["double"] }).error, "Double can add the biggest prize won (minus its £25)");
+ok(validateRun({ ...base(), score: most + BIG_PRIZE, lifelines: ["double"] }).error, "...but no more");
+const easyOnly = { runId: "abcdefgh1234", answered: { easy: 7, medium: 0, hard: 1 }, correct: { easy: 5, medium: 0, hard: 0 }, bigCorrect: 0 };
+ok(!validateRun({ ...easyOnly, score: 600 - 25, lifelines: ["double"] }).error && validateRun({ ...easyOnly, score: 600, lifelines: ["double"] }).error, "with only easy ones right, Double adds at most £100");
+ok(validateRun({ ...base(), score: most, lifelines: ["double"] }).run.lifelines.join() === "double", "Double is kept");
+const all6 = ["double", "swap", "hint", "phoneFriend", "stopClock", "removeWrong"];
+const r6 = validateRun({ ...base(), score: most + BIG_PRIZE - 250, lifelines: all6 });
+ok(!r6.error && r6.run.lifelines.join() === "removeWrong,stopClock,phoneFriend,hint,swap,double", "all six at once (£250 in total) are accepted and put in order");
+ok(validateRun({ ...base(), score: most + BIG_PRIZE - 225, lifelines: all6 }).error, "...and the six together cost £250");
+ok(validateRun({ ...base(), lifelines: ["hint", "hint"] }).error, "Hint twice refused");
 ok(validateRun({ ...base(), correct: { easy: 1, medium: 2, hard: 5 } }).error, "must end on exactly 3 wrong answers (4 wrong refused)");
 ok(validateRun({ ...base(), correct: { easy: 2, medium: 3, hard: 7 } }).error, "unfinished run (0 wrong) refused");
 ok(validateRun({ ...base(), correct: { easy: 3, medium: 2, hard: 6 } }).error, "more right than answered refused");
@@ -78,6 +93,11 @@ ok(!validateFinish(wrun({ score: 1500 })).error, "6 right can be at most 6 x £2
 ok(validateFinish(wrun({ score: 1525 })).error, "one step more refused");
 ok(!validateFinish(wrun({ score: 1450, lifelines: ["stopClock"] })).error, "a lifeline takes £50 off the maximum");
 ok(validateFinish(wrun({ score: 1500, lifelines: ["stopClock"] })).error, "...so the full amount is refused");
+ok(!validateFinish(wrun({ score: 1475, lifelines: ["hint"] })).error && validateFinish(wrun({ score: 1500, lifelines: ["hint"] })).error, "Hint takes £25 off the weekly maximum");
+ok(!validateFinish(wrun({ score: 1450, lifelines: ["swap"] })).error && validateFinish(wrun({ score: 1475, lifelines: ["swap"] })).error, "Swap takes £50 off");
+ok(!validateFinish(wrun({ score: 1725, lifelines: ["double"] })).error && validateFinish(wrun({ score: 1750, lifelines: ["double"] })).error, "Double: one more £250 at most, minus its £25");
+ok(!validateFinish(wrun({ correct: 10, wrong: 0, score: 2725, lifelines: ["double"] })).error, "a perfect run with a doubled medium (£2,725) fits the score limit");
+ok(!validateFinish(wrun({ score: 0, lifelines: ["double"] })).error, "a run where Double went wrong and the bank dropped to £0 still saves");
 ok(validateFinish(wrun({ correct: 6, wrong: 3 })).error, "must be 10 questions");
 ok(validateFinish(wrun({ slot: 3 })).error && validateFinish(wrun({ slot: -1 })).error && validateFinish(wrun({ slot: "0" })).error, "slot must be 0, 1 or 2");
 ok(validateFinish(wrun({ score: 30 })).error, "score must be a multiple of 25");
@@ -90,6 +110,8 @@ const lv = (ae, ce, cm) => ({ easy: { answered: ae, correct: ce }, medium: { ans
 ok(!validateFinish(wrun({ score: 900, levels: lv(6, 4, 2) })).error, "with the levels, the most 4 easy + 2 medium can win is £900");
 ok(validateFinish(wrun({ score: 925, levels: lv(6, 4, 2) })).error, "...and £925 is refused (the old flat limit would have allowed it)");
 ok(!validateFinish(wrun({ score: 850, levels: lv(6, 4, 2), lifelines: ["phoneFriend"] })).error, "a lifeline comes off that");
+ok(!validateFinish(wrun({ score: 1125, levels: lv(6, 4, 2), lifelines: ["double"] })).error && validateFinish(wrun({ score: 1150, levels: lv(6, 4, 2), lifelines: ["double"] })).error, "with levels, Double adds the biggest prize won (medium £250), minus £25");
+ok(!validateFinish(wrun({ score: 475, levels: lv(10, 4, 0), correct: 4, wrong: 6, lifelines: ["double"] })).error && validateFinish(wrun({ score: 500, levels: lv(10, 4, 0), correct: 4, wrong: 6, lifelines: ["double"] })).error, "...or just £100 if only easy ones were right");
 ok(validateFinish(wrun({ score: 900, levels: lv(6, 4, 3) })).error, "level counts must add up to the right answers");
 ok(validateFinish(wrun({ score: 900, levels: lv(6, 7, 2) })).error, "can't get more easy right than were easy");
 ok(validateFinish(wrun({ score: 900, levels: { easy: { answered: 6, correct: 4 }, medium: { answered: 5, correct: 2 } } })).error, "easy + medium questions must make 10");

@@ -13,7 +13,7 @@
 
 import { json, fail, checkOrigin, readJson } from "./util.js";
 import { authProfile, needSignIn, profileJson } from "./profiles.js";
-import { LIFELINES, LIFELINE_COST, SCORE_STEP } from "./endless.js";
+import { cleanLifelines, lifelinesCost, SCORE_STEP } from "./endless.js";
 
 // ---- game rules (must match weekly.js and CONFIG.weekly in game.js) ----
 export const WEEKLY_SLOTS = 3;             // topics a week
@@ -72,23 +72,21 @@ export function validateFinish(body) {
   const { correct, wrong, score } = body;
   const whole = (n, max) => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= max;
   if (!whole(correct, WEEKLY_QUESTIONS) || !whole(wrong, WEEKLY_QUESTIONS) || correct + wrong !== WEEKLY_QUESTIONS) return { error: "That run wasn't finished." };
-  if (!Array.isArray(body.lifelines) || body.lifelines.length > LIFELINES.length) return { error: "Lifelines must be a short list." };
-  const lifelines = [];
-  for (const l of body.lifelines) {
-    if (!LIFELINES.includes(l) || lifelines.includes(l)) return { error: "Unknown lifeline." };
-    lifelines.push(l);
-  }
-  lifelines.sort((a, b) => LIFELINES.indexOf(a) - LIFELINES.indexOf(b));
-  if (!whole(score, WEEKLY_QUESTIONS * WEEKLY_MAX_PRIZE)) return { error: "Score must be a whole number." };
+  const ll = cleanLifelines(body.lifelines);
+  if (ll.error) return ll;
+  const lifelines = ll.lifelines;
+  const doubled = lifelines.includes("double");   // "Double or nothing": one right answer can win twice its prize
+  if (!whole(score, WEEKLY_QUESTIONS * WEEKLY_MAX_PRIZE + WEEKLY_MAX_PRIZE)) return { error: "Score must be a whole number." };
   if (score % SCORE_STEP !== 0) return { error: `Score must be a multiple of ${SCORE_STEP}.` };
-  let levels = null, mostEarnable = correct * WEEKLY_MAX_PRIZE - lifelines.length * LIFELINE_COST;
+  let levels = null, mostEarnable = correct * WEEKLY_MAX_PRIZE + (doubled && correct > 0 ? WEEKLY_MAX_PRIZE : 0) - lifelinesCost(lifelines);
   if (body.levels !== undefined && body.levels !== null) {
     const l = body.levels;
     const good = (o) => o && typeof o === "object" && whole(o.answered, WEEKLY_QUESTIONS) && whole(o.correct, WEEKLY_QUESTIONS) && o.correct <= o.answered;
     if (!l || typeof l !== "object" || !good(l.easy) || !good(l.medium)) return { error: "The easy and medium counts aren't valid." };
     if (l.easy.answered + l.medium.answered !== WEEKLY_QUESTIONS || l.easy.correct + l.medium.correct !== correct) return { error: "Those easy and medium counts don't add up." };
     levels = { answeredEasy: l.easy.answered, correctEasy: l.easy.correct, correctMedium: l.medium.correct };
-    mostEarnable = l.easy.correct * WEEKLY_PRIZES.easy + l.medium.correct * WEEKLY_PRIZES.medium - lifelines.length * LIFELINE_COST;
+    const biggestRight = l.medium.correct > 0 ? WEEKLY_PRIZES.medium : l.easy.correct > 0 ? WEEKLY_PRIZES.easy : 0;
+    mostEarnable = l.easy.correct * WEEKLY_PRIZES.easy + l.medium.correct * WEEKLY_PRIZES.medium + (doubled ? biggestRight : 0) - lifelinesCost(lifelines);
   }
   if (score > mostEarnable) return { error: "That score is higher than those answers could win." };
   return { run: { slot: body.slot, score, correct, wrong, lifelines, levels } };

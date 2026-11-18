@@ -6,7 +6,7 @@
   <title>Mel's Quiz</title>
   <meta name="description" content="Mel's Quiz - a friendly general knowledge money game.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%9F%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <main class="card">
@@ -19,7 +19,7 @@
         <li>You have <strong id="rule-seconds">30</strong> seconds for each question.</li>
         <li>You have <strong>3 lives</strong> <span class="hearts-inline">♥♥♥</span>. A wrong answer, or running out of time, costs a life. The game goes on until they're all gone, and you keep what you've won.</li>
         <li>Every 10th question is a big hard one, worth double.</li>
-        <li>Lifelines cost a little money, and you can use each one once per game.</li>
+        <li>Six lifelines, from a Hint to Double or nothing, cost a little money, and you can use each one once per game.</li>
       </ul>
       <p id="start-flash" class="flash" role="status" aria-live="polite" hidden></p>
 
@@ -167,6 +167,15 @@
 
       <h2 id="question-text" tabindex="-1"></h2>
 
+      <div id="double-panel" class="double-panel" role="status" hidden>
+        <p id="double-message" class="double-message"></p>
+      </div>
+
+      <div id="hint-panel" class="hint-panel" role="status" hidden>
+        <p class="hint-title">💡 Hint</p>
+        <p id="hint-message" class="hint-message"></p>
+      </div>
+
       <div id="friend-panel" class="friend-panel" role="alert" hidden>
         <p id="friend-message" class="friend-message"></p>
       </div>
@@ -180,6 +189,9 @@
         <button id="ll-removeWrong" class="btn lifeline" type="button"></button>
         <button id="ll-stopClock" class="btn lifeline" type="button"></button>
         <button id="ll-phoneFriend" class="btn lifeline" type="button"></button>
+        <button id="ll-hint" class="btn lifeline" type="button"></button>
+        <button id="ll-swap" class="btn lifeline" type="button"></button>
+        <button id="ll-double" class="btn lifeline" type="button"></button>
       </div>
     </section>
 
@@ -213,8 +225,8 @@
 
   <p id="footer-note" class="footer">No sign-ups, no tracking. Your best winnings are saved only on this device.</p>
 
-  <script src="questions.js?v=8"></script>
-  <script src="weekly.js?v=8"></script>
-  <script src="game.js?v=8"></script>
+  <script src="questions.js?v=9"></script>
+  <script src="weekly.js?v=9"></script>
+  <script src="game.js?v=9"></script>
 </body>
 </html>

@@ -349,11 +349,39 @@ async function stats() {
   ok(r.status === 401, "after deleting, the profile has no stats");
 }
 
+async function newLifelines() {
+  console.log("New lifelines: Hint, Swap the question, Double or nothing");
+  const n = await call("POST", "/profiles", { name: "Neo " + tag, pin: "1111" });
+  const t = n.data.token;
+  // The usual 12-question run can win at most £4,100. Double or nothing can add one more £1,000 (the big question),
+  // and Hint + Swap + Double cost £25 + £50 + £25, so the most is £5,000.
+  let r = await call("POST", "/runs", run({ score: 5025, bigCorrect: 1, lifelines: ["double", "hint", "swap"] }), t);
+  ok(r.status === 400, "one step over the Double or nothing limit is refused");
+  r = await call("POST", "/runs", run({ score: 5000, bigCorrect: 1, lifelines: ["double", "hint", "swap"] }), t);
+  ok(r.status === 201, "a run with a doubled big question saves at £5,000");
+  r = await call("POST", "/runs", run({ score: 0, bigCorrect: 1, lifelines: ["double"] }), t);
+  ok(r.status === 201, "a run where Double or nothing went wrong (bank back to £0) saves");
+  r = await call("GET", "/leaderboard/endless?board=overall");
+  const row = r.data.scores.find((x) => x.name === "Neo " + tag && x.score === 5000);
+  ok(row && row.lifelines.join() === "hint,swap,double", "the leaderboard row lists the new lifelines in order");
+  await call("POST", "/weekly/start", { slot: 2 }, t);
+  await new Promise((res) => setTimeout(res, 3300));
+  r = await call("POST", "/weekly/finish", { slot: 2, score: 1750, correct: 6, wrong: 4, lifelines: ["double"] }, t);
+  ok(r.status === 400, "weekly: 6 right with Double can't be £1,750 (most is 6 x £250 + £250 - £25)");
+  r = await call("POST", "/weekly/finish", { slot: 2, score: 1725, correct: 6, wrong: 4, lifelines: ["double"] }, t);
+  ok(r.status === 200, "...but £1,725 saves");
+  r = await call("GET", "/me/stats", undefined, t);
+  const ll = r.data.stats.lifelines;
+  ok(ll.hint === 1 && ll.swap === 1 && ll.double === 3 && ll.removeWrong === 0 && ll.total === 5, "profile stats count each new lifeline");
+  await call("POST", "/me/delete", {}, t);
+}
+
 const token = await profiles();
 await weekly();
 await endless();
 await topThree();
 await stats();
+await newLifelines();
 await call("POST", "/me/delete", {}, token);
 console.log(failures ? `\n${failures} FAILED` : "\nAll good.");
 process.exit(failures ? 1 : 0);

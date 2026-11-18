@@ -38,13 +38,16 @@ var CONFIG = {
   },
 
   // Lifelines. Each can be used once per game (they never refill) and costs money from her winnings.
-  // Ask Dec is £50 (not £40) so every possible score stays a multiple of £25,
-  // which the shared leaderboard still requires.
+  // Every cost must be a multiple of £25 so every possible score stays a multiple of £25,
+  // which the shared leaderboard requires. Keep the costs in step with LIFELINE_COSTS in leaderboard/src/endless.js.
   lifelines: {
     // `icon` is the little picture shown next to scores on the leaderboards and on the profile page.
     removeWrong: { label: "Remove a wrong answer", cost: 50, icon: "✂️" },
     stopClock:   { label: "Stop the clock",        cost: 50, icon: "⏱️" },
-    phoneFriend: { label: "Ask Dec",               cost: 50, icon: "📞" }
+    phoneFriend: { label: "Ask Dec",               cost: 50, icon: "📞" },
+    hint:        { label: "Hint",                  cost: 25, icon: "💡" }, // shows the question's `hint` from questions.js / weekly.js
+    swap:        { label: "Swap the question",     cost: 50, icon: "🔄" }, // a fresh question at the same level (weekly: one of the topic's spares)
+    double:      { label: "Double or nothing",     cost: 25, icon: "🎲" }  // right = double this prize; wrong = all the money goes back to £0
   },
 
   // Ask Dec is a gamble. The three odds should add up to 1.
@@ -87,7 +90,7 @@ var CONFIG = {
   var lives, answeredBy, correctBy, bigCorrect, runId, lastRun;
   var mode = "endless";            // "endless" or "weekly"
   var weeklyState = null, weeklyTopic = null, weeklySlot = 0, wCorrect = 0, wWrong = 0, wLevels = null;
-  var answered, endReason;
+  var answered, endReason, doubleArmed = false, usedSpares = null;
   // timer state
   var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false;
 
@@ -233,6 +236,7 @@ var CONFIG = {
     answered = false;
     clockStopped = false;
     askDecBusy = false;
+    doubleArmed = false;
 
     var weekly = (mode === "weekly");
     $("q-progress").textContent = weekly ? "Question " + asked + " of " + CONFIG.weekly.questions : "Question " + asked;
@@ -244,12 +248,25 @@ var CONFIG = {
       ? level.label + " question: win " + fmt(prize) + ", or lose " + fmt(lossFor(prize))
       : (big ? "Big hard question" : level.label + " question") + " for " + fmt(prize);
     $("q-level").className = "level-tag level-" + level.key + (big ? " level-big" : "");
-    $("question-text").textContent = current.q;
     $("feedback").hidden = true;
     $("feedback").textContent = "";
     $("feedback").className = "feedback";
     $("btn-next").hidden = true;
+    $("double-panel").hidden = true;
+    renderQuestion();
+
+    updateMoney();
+    updateLifelines();
+    show("question");
+    startTimer(CONFIG.secondsPerQuestion * 1000);
+    $("question-text").focus();
+  }
+
+  // Shows `current` (its text and four shuffled options). Also used by "Swap the question".
+  function renderQuestion() {
+    $("question-text").textContent = current.q;
     $("friend-panel").hidden = true;
+    $("hint-panel").hidden = true;
 
     var box = $("options");
     box.innerHTML = "";
@@ -264,12 +281,6 @@ var CONFIG = {
       b.addEventListener("click", function () { choose(b, text); });
       box.appendChild(b);
     });
-
-    updateMoney();
-    updateLifelines();
-    show("question");
-    startTimer(CONFIG.secondsPerQuestion * 1000);
-    $("question-text").focus();
   }
 
   function updateMoney() { $("q-money").textContent = fmt(money); }
@@ -339,12 +350,14 @@ var CONFIG = {
       var b = $("ll-" + key);
       var used = !!usedLifelines[key];
       var affordable = money >= ll.cost;
-      b.innerHTML = '<span class="ll-name"></span><span class="ll-cost"></span>';
-      b.querySelector(".ll-name").textContent = ll.label;
+      b.innerHTML = '<span class="ll-name"><span class="ll-emoji" aria-hidden="true"></span><span class="ll-label"></span></span><span class="ll-cost"></span>';
+      b.querySelector(".ll-emoji").textContent = ll.icon + " ";
+      b.querySelector(".ll-label").textContent = ll.label;
       b.querySelector(".ll-cost").textContent = used ? "Used" : fmt(ll.cost);
-      b.disabled = answered || askDecBusy || used || !affordable;
+      var unavailable = key === "swap" && !used && !canSwap();   // a weekly topic without spare questions
+      b.disabled = answered || askDecBusy || used || !affordable || unavailable;
       b.classList.toggle("used", used);
-      var why = used ? "already used" : (!affordable ? "you can't afford this yet" : "costs " + fmt(ll.cost));
+      var why = used ? "already used" : (unavailable ? "no spare questions for this topic" : (!affordable ? "you can't afford this yet" : "costs " + fmt(ll.cost)));
       b.setAttribute("aria-label", ll.label + ", " + why);
       b.title = why;
     });
@@ -476,6 +489,54 @@ var CONFIG = {
     }, CONFIG.askDec.thinkMs);
   }
 
+  // Hint: shows the question's hint in a friendly box. The timer keeps running.
+  function useHint() {
+    if (!spend("hint")) return;
+    $("hint-message").textContent = current.hint || "Sorry, there's no hint for this one. Go with your gut!";
+    $("hint-panel").hidden = false;
+    updateLifelines();
+  }
+
+  // Swap the question: a fresh question at the same level. The swapped-out one doesn't count as answered.
+  // Endless: the next unseen question from that level's list. Weekly: one of the topic's spare questions,
+  // the same level if there is one. The timer starts again (unless the clock has been stopped).
+  function nextSpare() {
+    var spares = (weeklyTopic && weeklyTopic.spares) || [];
+    var fresh = spares.filter(function (sq) { return usedSpares.indexOf(sq) < 0; });
+    var same = fresh.filter(function (sq) { return sq.level === currentLevel.key; });
+    return same[0] || fresh[0] || null;
+  }
+  function canSwap() { return mode !== "weekly" || !!nextSpare(); }
+  function useSwap() {
+    if (!canSwap() || !spend("swap")) return;
+    if (mode === "weekly") {
+      var sq = nextSpare();
+      usedSpares.push(sq);
+      if (sq.level !== currentLevel.key) {         // only if a topic has no spare at this level
+        currentLevel = levelByKey(sq.level);
+        currentPrize = currentLevel.prize;
+        $("q-level").textContent = currentLevel.label + " question: win " + fmt(currentPrize) + ", or lose " + fmt(lossFor(currentPrize));
+        $("q-level").className = "level-tag level-" + currentLevel.key;
+      }
+      current = sq;
+    } else {
+      current = drawQuestion(currentLevel);
+    }
+    renderQuestion();
+    if (clockStopped) renderTimer(); else startTimer(CONFIG.secondsPerQuestion * 1000);
+    updateLifelines();
+    $("question-text").focus();
+  }
+
+  // Double or nothing: right doubles this question's prize; wrong (or out of time) sends the money back to £0.
+  function useDouble() {
+    if (!spend("double")) return;
+    doubleArmed = true;
+    $("double-message").textContent = "🎲 Double or nothing! Get this right to win " + fmt(currentPrize * 2) + ". Get it wrong and your money goes back to " + fmt(0) + ".";
+    $("double-panel").hidden = false;
+    updateLifelines();
+  }
+
   function setOptionsDisabled(flag) {
     optionButtons().forEach(function (b) { b.disabled = flag || b.classList.contains("removed"); });
   }
@@ -527,14 +588,21 @@ var CONFIG = {
     var fb = $("feedback");
     var oops = timedOut ? "⏰ Time's up!" : "✘ " + pick(CONSOLATIONS);
     var reveal = " The right answer was: " + current.answer + (/[.!?]$/.test(current.answer) ? "" : ".");
+    var won = doubleArmed ? currentPrize * 2 : currentPrize;   // Double or nothing
+    $("double-panel").hidden = true;
     if (mode === "weekly") {
       wLevels[currentLevel.key].answered++;
       if (right) {
         wCorrect++;
         wLevels[currentLevel.key].correct++;
-        money += currentPrize;
-        fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
+        money += won;
+        fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(won) + "!" + (doubleArmed ? " Double or nothing paid off! 🎲" : "");
         fb.className = "feedback good";
+      } else if (doubleArmed) {
+        wWrong++;
+        money = 0;
+        fb.textContent = oops + reveal + " Double or nothing didn't pay off, so your money goes back to " + fmt(0) + ".";
+        fb.className = "feedback bad";
       } else {
         wWrong++;
         var lose = Math.min(money, lossFor(currentPrize));
@@ -548,12 +616,14 @@ var CONFIG = {
       if (right) {
         correctBy[currentLevel.key]++;
         if (currentBig) bigCorrect++;
-        money += currentPrize;
-        fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
+        money += won;
+        fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(won) + "!" + (doubleArmed ? " Double or nothing paid off! 🎲" : "");
         fb.className = "feedback good";
       } else {
+        var reset = doubleArmed ? " Double or nothing didn't pay off, so your money goes back to " + fmt(0) + "." : "";
+        if (doubleArmed) money = 0;
         loseLife();
-        fb.textContent = oops + reveal + lifeLine();
+        fb.textContent = oops + reveal + reset + lifeLine();
         fb.className = "feedback bad";
       }
     }
@@ -1359,7 +1429,7 @@ var CONFIG = {
       weeklyTopic.questions.length + " questions, " + CONFIG.secondsPerQuestion + " seconds each.",
       "A right answer wins the prize: " + fmt(levelByKey("easy").prize) + " for an easy question, " + fmt(levelByKey("medium").prize) + " for a medium one.",
       "A wrong answer, or running out of time, loses half that prize. You can't go below " + fmt(0) + ", and a wrong answer doesn't end your go.",
-      "Lifelines cost " + fmt(CONFIG.lifelines.removeWrong.cost) + " each, come out of your winnings, and can be used once each.",
+      "Lifelines cost " + fmt(CONFIG.lifelines.hint.cost) + " or " + fmt(CONFIG.lifelines.removeWrong.cost) + ", come out of your winnings, and can be used once each. Double or nothing doubles a right answer, but a wrong one sends your money back to " + fmt(0) + ".",
       "You only get ONE go at this topic this week. Once you press Start it counts as played, even if you close the page."
     ].forEach(function (t) {
       var li = document.createElement("li");
@@ -1391,6 +1461,7 @@ var CONFIG = {
     money = 0;
     asked = 0;
     usedLifelines = {};
+    usedSpares = [];
     endReason = "";
     wCorrect = 0;
     wWrong = 0;
@@ -1462,6 +1533,9 @@ var CONFIG = {
   $("ll-removeWrong").addEventListener("click", useRemoveWrong);
   $("ll-stopClock").addEventListener("click", useStopClock);
   $("ll-phoneFriend").addEventListener("click", usePhoneFriend);
+  $("ll-hint").addEventListener("click", useHint);
+  $("ll-swap").addEventListener("click", useSwap);
+  $("ll-double").addEventListener("click", useDouble);
 
   setupLeaderboardUi();
   setupProfileUi();
