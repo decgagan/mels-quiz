@@ -22,7 +22,7 @@ var CONFIG = {
   lifelines: {
     removeWrong: { label: "Remove a wrong answer", cost: 50 },
     stopClock:   { label: "Stop the clock",        cost: 50 },
-    phoneFriend: { label: "Phone a friend",        cost: 75 }
+    phoneFriend: { label: "Ask Dec",               cost: 75 }
   },
   phoneFriendMessage: "Ask Dec! Take your time.", // shown while the clock is paused
 

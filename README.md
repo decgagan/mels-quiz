@@ -27,7 +27,7 @@ Each lifeline can be used **once per game**. It costs money, which comes out of 
 | --- | --- | --- |
 | Remove a wrong answer | £50 | Takes away one wrong option |
 | Stop the clock | £50 | Freezes the timer for that question |
-| Phone a friend | £75 | Pauses the timer and says "Ask Dec! Take your time." Ring (or message) Dec, then press **Back to the question** to carry on. The game does nothing else - it's just for asking a real person. |
+| Ask Dec | £75 | Pauses the timer and says "Ask Dec! Take your time." Ring (or message) Dec, then press **Back to the question** to carry on. The game does nothing else - it's just for asking a real person. |
 
 When the game ends you see **You won £X!** and your **best winnings** are remembered on that device (in the browser's `localStorage`, so they never leave it).
 
@@ -49,7 +49,7 @@ var CONFIG = {
   lifelines: {
     removeWrong: { label: "Remove a wrong answer", cost: 50 },
     stopClock:   { label: "Stop the clock",        cost: 50 },
-    phoneFriend: { label: "Phone a friend",        cost: 75 }
+    phoneFriend: { label: "Ask Dec",               cost: 75 }
   },
   phoneFriendMessage: "Ask Dec! Take your time.",
   storageKey: "melsQuiz.bestWinnings"
