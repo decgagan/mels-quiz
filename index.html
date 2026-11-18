@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mel's Quiz</title>
+  <meta name="description" content="Mel's Quiz - a friendly general knowledge quiz.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%9F%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Mel's Quiz</h1>
+
+    <!-- Start screen -->
+    <section id="screen-start" class="screen">
+      <p class="lead">Ten friendly general knowledge questions. Take your time, there's no rush!</p>
+      <p id="best-start" class="best" hidden></p>
+      <button id="btn-start" class="btn btn-primary" type="button">Start a quiz</button>
+    </section>
+
+    <!-- Question screen -->
+    <section id="screen-question" class="screen" hidden>
+      <div class="progress-row">
+        <span id="progress-text">Question 1 of 10</span>
+        <span id="score-text">Score: 0</span>
+      </div>
+      <div class="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
+      <h2 id="question-text" tabindex="-1"></h2>
+      <div id="options" class="options"></div>
+      <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+      <button id="btn-next" class="btn btn-primary" type="button" hidden>Next question</button>
+    </section>
+
+    <!-- End screen -->
+    <section id="screen-end" class="screen" hidden>
+      <h2 id="end-title" tabindex="-1">All done!</h2>
+      <p id="end-score" class="big-score"></p>
+      <p id="end-message" class="lead"></p>
+      <p id="end-best" class="best"></p>
+      <button id="btn-again" class="btn btn-primary" type="button">Play again</button>
+    </section>
+  </main>
+
+  <p class="footer">No sign-ups, no tracking. Your best score is saved only on this device.</p>
+
+  <script src="questions.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
