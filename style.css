@@ -638,3 +638,4 @@ body[data-screen="question"] h2#question-text { margin: 14px 0 16px; }
 }
 @keyframes throb { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 @keyframes big-score-in { 0% { transform: scale(0.85); opacity: 0; } 60% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); } }
+.fb-extra { display: block; margin-top: 6px; font-size: 1.05rem; }

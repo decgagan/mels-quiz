@@ -91,6 +91,8 @@ var CONFIG = {
   var mode = "endless";            // "endless" or "weekly"
   var weeklyState = null, weeklyTopic = null, weeklySlot = 0, wCorrect = 0, wWrong = 0, wLevels = null;
   var answered, endReason, doubleArmed = false, usedSpares = null;
+  // just for fun (they never change the money): right answers in a row, and passing your best mid-game
+  var streak = 0, bestStreak = 0, bestAtStart = 0, beatBest = false;
   // timer state
   var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false, tickSecs = null;
 
@@ -350,6 +352,10 @@ var CONFIG = {
     answeredBy = { easy: 0, medium: 0, hard: 0 };
     correctBy = { easy: 0, medium: 0, hard: 0 };
     bigCorrect = 0;
+    streak = 0;
+    bestStreak = 0;
+    bestAtStart = loadBest() || 0;
+    beatBest = false;
     runId = makeRunId();
     lastRun = null;
     pools = {};
@@ -837,7 +843,7 @@ var CONFIG = {
     Sound.play(right ? "right" : timedOut ? "timeUp" : "wrong");
     var fb = $("feedback");
     var oops = timedOut ? "⏰ Time's up!" : "✘ " + pick(CONSOLATIONS);
-    var reveal = " The right answer was: " + current.answer + (/[.!?]$/.test(current.answer) ? "" : ".");
+    var answerText = " The right answer was: " + current.answer + (/[.!?]$/.test(current.answer) ? "" : ".");
     var won = doubleArmed ? currentPrize * 2 : currentPrize;   // Double or nothing
     $("double-panel").hidden = true;
     if (mode === "weekly") {
@@ -851,13 +857,13 @@ var CONFIG = {
       } else if (doubleArmed) {
         wWrong++;
         money = 0;
-        fb.textContent = oops + reveal + " Double or nothing didn't pay off, so your money goes back to " + fmt(0) + ".";
+        fb.textContent = oops + answerText + " Double or nothing didn't pay off, so your money goes back to " + fmt(0) + ".";
         fb.className = "feedback bad";
       } else {
         wWrong++;
         var lose = Math.min(money, lossFor(currentPrize));
         money -= lose;
-        fb.textContent = oops + reveal + (lose > 0 ? " You lose " + fmt(lose) + "." : " You had nothing to lose, so you're still on " + fmt(money) + ".");
+        fb.textContent = oops + answerText + (lose > 0 ? " You lose " + fmt(lose) + "." : " You had nothing to lose, so you're still on " + fmt(money) + ".");
         fb.className = "feedback bad";
       }
       if (asked >= CONFIG.weekly.questions) endReason = "complete";
@@ -873,11 +879,28 @@ var CONFIG = {
         var reset = doubleArmed ? " Double or nothing didn't pay off, so your money goes back to " + fmt(0) + "." : "";
         if (doubleArmed) money = 0;
         loseLife();
-        fb.textContent = oops + reveal + reset + lifeLine();
+        fb.textContent = oops + answerText + reset + lifeLine();
         fb.className = "feedback bad";
       }
     }
+    if (right) { streak++; if (streak > bestStreak) bestStreak = streak; } else streak = 0;
+    if (right && streak >= 3) feedbackExtra("🔥 " + streak + " right in a row!");
+    if (right && mode !== "weekly" && !beatBest && bestAtStart > 0 && money > bestAtStart) {
+      beatBest = true;
+      feedbackExtra("⭐ That's more than your best winnings ever on this device!");
+    }
     afterAnswer();
+  }
+
+  // An extra line under the answer feedback (a streak, a new best).
+  function feedbackExtra(text) {
+    var line = document.createElement("span");
+    line.className = "fb-extra";
+    line.textContent = text;
+    $("feedback").appendChild(line);
+  }
+  function streakText() {
+    return bestStreak >= 3 ? " Your best streak was " + bestStreak + " right in a row." : "";
   }
 
   function afterAnswer() {
@@ -932,7 +955,7 @@ var CONFIG = {
     };
     $("end-reason").textContent = "You ran out of lives, so the game is over.";
     $("end-won").textContent = "You won " + fmt(money) + "!";
-    $("end-summary").textContent = "You answered " + total + (total === 1 ? " question" : " questions") + " and got " + right + " right.";
+    $("end-summary").textContent = "You answered " + total + (total === 1 ? " question" : " questions") + " and got " + right + " right." + streakText();
     $("end-message").textContent = endMessage(money);
     $("end-best").textContent = newBest ? "🎉 That's your best winnings on this device!" :
       (best === null ? "" : "Your best winnings on this device: " + fmt(best));
@@ -1745,6 +1768,8 @@ var CONFIG = {
     wCorrect = 0;
     wWrong = 0;
     wLevels = { easy: { answered: 0, correct: 0 }, medium: { answered: 0, correct: 0 } };
+    streak = 0;
+    bestStreak = 0;
     lastRun = null;
     weeklyNext();
   }
@@ -1769,7 +1794,7 @@ var CONFIG = {
     if (wCorrect === CONFIG.weekly.questions) confetti();
     $("end-reason").textContent = weeklyTopic.emoji + " " + weeklyTopic.title;
     $("end-won").textContent = "You scored " + fmt(money);
-    $("end-summary").textContent = wCorrect + " right, " + wWrong + " wrong or timed out.";
+    $("end-summary").textContent = wCorrect + " right, " + wWrong + " wrong or timed out." + streakText();
     $("end-message").textContent = weeklyMessageFor(money);
     $("end-best").textContent = "";
     $("btn-again").textContent = "Back to the weekly challenge";
