@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mel's Quiz</title>
-  <meta name="description" content="Mel's Quiz - a friendly general knowledge quiz.">
+  <meta name="description" content="Mel's Quiz - a friendly general knowledge money game.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%9F%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -14,35 +14,75 @@
 
     <!-- Start screen -->
     <section id="screen-start" class="screen">
-      <p class="lead">Ten friendly general knowledge questions. Take your time, there's no rush!</p>
+      <p class="lead">Win as much money as you can! Before each question, pick Easy, Medium or Hard. The harder the question, the bigger the prize.</p>
+      <ul class="rules">
+        <li>You have <strong id="rule-seconds">30</strong> seconds for each question.</li>
+        <li>Get it wrong, or run out of time, and the game ends, but you keep what you've won.</li>
+        <li>Use a lifeline if you're stuck. Each one costs a little money.</li>
+      </ul>
       <p id="best-start" class="best" hidden></p>
-      <button id="btn-start" class="btn btn-primary" type="button">Start a quiz</button>
+      <button id="btn-start" class="btn btn-primary" type="button">Start playing</button>
+    </section>
+
+    <!-- Choose a question -->
+    <section id="screen-choose" class="screen" hidden>
+      <div class="money-bar">
+        <span id="choose-progress">Question 1 of 10</span>
+        <span class="money">You have <strong id="choose-money">£0</strong></span>
+      </div>
+      <h2 id="choose-title" tabindex="-1">Pick your question</h2>
+      <div id="choices" class="choices"></div>
+      <p id="lifelines-left" class="small-note"></p>
+      <button id="btn-take" class="btn btn-secondary" type="button">Take the money</button>
     </section>
 
     <!-- Question screen -->
     <section id="screen-question" class="screen" hidden>
-      <div class="progress-row">
-        <span id="progress-text">Question 1 of 10</span>
-        <span id="score-text">Score: 0</span>
+      <div class="money-bar">
+        <span id="q-progress">Question 1 of 10</span>
+        <span class="money">You have <strong id="q-money">£0</strong></span>
       </div>
-      <div class="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
+      <p id="q-level" class="level-tag"></p>
+
+      <div class="timer" role="timer" aria-label="Time left">
+        <div class="timer-top">
+          <span id="timer-seconds" class="timer-seconds">30</span>
+          <span id="timer-note" class="timer-note">seconds left</span>
+        </div>
+        <div class="timer-bar" aria-hidden="true"><div id="timer-fill"></div></div>
+      </div>
+
       <h2 id="question-text" tabindex="-1"></h2>
+
+      <div id="friend-panel" class="friend-panel" role="alert" hidden>
+        <p id="friend-message" class="friend-message"></p>
+        <button id="btn-friend-back" class="btn btn-primary" type="button">Back to the question</button>
+      </div>
+
       <div id="options" class="options"></div>
+
       <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
-      <button id="btn-next" class="btn btn-primary" type="button" hidden>Next question</button>
+      <button id="btn-next" class="btn btn-primary" type="button" hidden>Next</button>
+
+      <div id="lifelines" class="lifelines" aria-label="Lifelines">
+        <button id="ll-removeWrong" class="btn lifeline" type="button"></button>
+        <button id="ll-stopClock" class="btn lifeline" type="button"></button>
+        <button id="ll-phoneFriend" class="btn lifeline" type="button"></button>
+      </div>
     </section>
 
     <!-- End screen -->
     <section id="screen-end" class="screen" hidden>
-      <h2 id="end-title" tabindex="-1">All done!</h2>
-      <p id="end-score" class="big-score"></p>
+      <h2 id="end-title" tabindex="-1" class="center">Game over</h2>
+      <p id="end-reason" class="small-note center"></p>
+      <p id="end-won" class="big-score"></p>
       <p id="end-message" class="lead"></p>
       <p id="end-best" class="best"></p>
       <button id="btn-again" class="btn btn-primary" type="button">Play again</button>
     </section>
   </main>
 
-  <p class="footer">No sign-ups, no tracking. Your best score is saved only on this device.</p>
+  <p class="footer">No sign-ups, no tracking. Your best winnings are saved only on this device.</p>
 
   <script src="questions.js"></script>
   <script src="game.js"></script>
