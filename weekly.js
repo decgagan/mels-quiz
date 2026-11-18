@@ -219,7 +219,7 @@ const WEEKLY = {
         // Spare questions, only used by the "Swap the question" lifeline (one easy, one medium).
         spares: [
           { q: "What is traditionally put on top of a Christmas tree?", options: ["A cracker", "A bauble", "A stocking", "A star or an angel"], answer: "A star or an angel", hint: "Something that would shine down from the top.", level: "easy" },
-          { q: "In which country did the tradition of the Christmas tree start, before it came to Britain?", options: ["Norway", "France", "Italy", "Germany"], answer: "Germany", hint: "Prince Albert brought the custom from his homeland.", level: "medium" },
+          { q: "Which Christmas carol was first performed in 1818 in the village of Oberndorf, Austria?", options: ["O Come, All Ye Faithful", "Silent Night", "Hark! The Herald Angels Sing", "Away in a Manger"], answer: "Silent Night", hint: "Its words were written by a young priest, Joseph Mohr, and it was first played on a guitar.", level: "medium" },
         ]
       },
     ]
