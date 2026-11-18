@@ -138,10 +138,10 @@ async function endless() {
   r = await call("GET", "/leaderboard/endless?board=nolifelines");
   const nl = r.data.scores.filter((x) => x.name.endsWith(tag));
   ok(nl.length === 2 && nl.every((x) => x.lifelines.length === 0), "no-lifelines board leaves Cat out");
-  // a player's second, worse run doesn't add a second row
+  // a player's second, worse run is a second entry (each player can hold their best 3)
   await call("POST", "/runs", run({ score: 50 }), a);
   r = await call("GET", "/leaderboard/endless?board=overall");
-  ok(r.data.scores.filter((x) => x.name.startsWith("Ann " + tag)).length === 1, "one row per player (their best)");
+  ok(r.data.scores.filter((x) => x.name.startsWith("Ann " + tag)).map((x) => x.score).join() === "4100,50", "a second, worse run adds a second row for the player (up to 3), below their best");
   r = await call("GET", "/me", undefined, a);
   ok(r.data.profile.gamesPlayed === 2 && r.data.profile.bestEndless === 4100, "games played 2, best still 4100");
 
@@ -216,6 +216,74 @@ async function weekly() {
   ok(!r.data.scores.some((x) => x.name.endsWith(tag)), "deleting profiles removes their weekly scores too");
 }
 
+async function topThree() {
+  console.log("Endless board: top 25, each player's best 3 runs");
+  const mk = async (n) => (await call("POST", "/profiles", { name: n + " " + tag, pin: "1111" })).data.token;
+  const mine = (r, who) => r.data.scores.filter((x) => x.name === who + " " + tag);
+  const p = await mk("Pia"), q = await mk("Quin");
+  const created = [p, q];
+
+  let r = await call("POST", "/runs", run({ score: 3500 }), q);
+  ok(r.status === 201 && r.data.rank === 1, "Quin saves 3500 (place 1)");
+  r = await call("POST", "/runs", run({ score: 4000 }), p);
+  ok(r.data.rank === 1 && r.data.rankNoLifelines === 1, "Pia's 4000 is place 1, overall and with no lifelines");
+  r = await call("POST", "/runs", run({ score: 3000 }), p);
+  ok(r.data.rank === 3, "Pia's 3000 is place 3 (her own 4000 counts as an entry above it)");
+  r = await call("POST", "/runs", run({ score: 2000 }), p);
+  ok(r.data.rank === 4 && r.data.scores.filter((x) => x.name === "Pia " + tag).length === 3, "her 3rd run is place 4 and she now has 3 rows");
+  r = await call("POST", "/runs", run({ score: 1000 }), p);
+  ok(r.status === 201 && r.data.saved === true && r.data.rank === null && r.data.rankNoLifelines === null, "a 4th run that isn't in her best 3 saves but has no place on the board");
+  ok(r.data.profile.gamesPlayed === 4, "...and still counts as a game played");
+
+  r = await call("GET", "/leaderboard/endless?board=overall", undefined, p);
+  let rows = r.data.scores.filter((x) => x.name.endsWith(tag));
+  ok(mine(r, "Pia").length === 3, "a player with 4 runs appears exactly 3 times");
+  ok(rows.map((x) => x.name.split(" ")[0] + x.score).join() === "Pia4000,Quin3500,Pia3000,Pia2000", "ordered by score across players: Pia 4000, Quin 3500, Pia 3000, Pia 2000 (her 1000 is left out)");
+  ok(rows.filter((x) => x.me).length === 3 && rows.every((x) => x.me === x.name.startsWith("Pia")), "'me' is true on all three of Pia's rows and no one else's");
+  r = await call("GET", "/leaderboard/endless?board=overall", undefined, q);
+  ok(r.data.scores.filter((x) => x.me).length === 1, "for Quin only one row is 'me'");
+
+  // a new run that beats one of her three pushes the lowest out
+  r = await call("POST", "/runs", run({ score: 2500 }), p);
+  ok(r.data.rank === 4, "Pia's new 2500 lands at place 4");
+  r = await call("GET", "/leaderboard/endless?board=overall");
+  ok(mine(r, "Pia").map((x) => x.score).join() === "4000,3000,2500", "her best three are now 4000, 3000, 2500 (the 2000 dropped off)");
+
+  // no-lifelines board = best 3 runs with no lifeline; overall board = best 3 of everything
+  const rr = await mk("Rae"); created.push(rr);
+  for (const sc of [3900, 3800, 3700]) await call("POST", "/runs", run({ score: sc, lifelines: ["phoneFriend"] }), rr);
+  r = await call("POST", "/runs", run({ score: 500 }), rr);
+  ok(r.data.rank === null && r.data.rankNoLifelines !== null, "Rae's 500 isn't in her best 3 overall, but is on the no-lifelines board");
+  for (const sc of [400, 300, 200]) r = await call("POST", "/runs", run({ score: sc }), rr);
+  ok(r.data.rank === null && r.data.rankNoLifelines === null, "her 4th no-lifeline run (200) is on neither board");
+  r = await call("GET", "/leaderboard/endless?board=overall");
+  ok(mine(r, "Rae").map((x) => x.score).join() === "3900,3800,3700" && mine(r, "Rae").every((x) => x.lifelines.length === 1), "overall: Rae's best three (all with a lifeline)");
+  r = await call("GET", "/leaderboard/endless?board=nolifelines");
+  ok(mine(r, "Rae").map((x) => x.score).join() === "500,400,300" && mine(r, "Rae").every((x) => x.lifelines.length === 0), "no-lifelines: her best three with none");
+  ok(mine(r, "Pia").length === 3, "no-lifelines: Pia has her three too");
+
+  // the board holds 25 entries at most
+  for (let i = 0; i < 10; i++) {
+    const t = await mk("Fill" + i); created.push(t);
+    for (let j = 0; j < 3; j++) await call("POST", "/runs", run({ score: 100 + 25 * (i * 3 + j) + 25 }), t);
+  }
+  for (const board of ["overall", "nolifelines"]) {
+    r = await call("GET", "/leaderboard/endless?board=" + board);
+    const sc = r.data.scores.map((x) => x.score);
+    ok(sc.length === 25, board + " board is capped at 25 entries (" + sc.length + ")");
+    ok(sc.every((v, i) => i === 0 || sc[i - 1] >= v), board + " board is in score order");
+    const counts = {};
+    for (const x of r.data.scores) counts[x.name] = (counts[x.name] || 0) + 1;
+    ok(Object.values(counts).every((n) => n <= 3), board + " board: nobody appears more than 3 times");
+  }
+  r = await call("GET", "/leaderboard/endless?board=overall", undefined, p);
+  ok(r.data.scores.filter((x) => x.me).length === mine(r, "Pia").length && mine(r, "Pia").length === 3, "'me' still marks all of Pia's rows on a full board");
+
+  for (const t of created) await call("POST", "/me/delete", {}, t);
+  r = await call("GET", "/leaderboard/endless?board=overall");
+  ok(!r.data.scores.some((x) => x.name.endsWith(tag)), "deleting the profiles removes all their entries");
+}
+
 async function stats() {
   console.log("Profile stats and the richer leaderboard rows");
   const mk = async (n) => (await call("POST", "/profiles", { name: n + " " + tag, pin: "1111" })).data.token;
@@ -284,6 +352,7 @@ async function stats() {
 const token = await profiles();
 await weekly();
 await endless();
+await topThree();
 await stats();
 await call("POST", "/me/delete", {}, token);
 console.log(failures ? `\n${failures} FAILED` : "\nAll good.");

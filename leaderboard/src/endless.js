@@ -3,7 +3,8 @@
 //   POST /runs                        (signed in)  -> 201 { ok, saved, newBest, profile, rank, rankNoLifelines, scores }
 //        body { runId, score, answered: {easy, medium, hard}, correct: {easy, medium, hard}, bigCorrect, lifelines: [..] }
 //        (hard counts include the big every-10th questions; bigCorrect says how many of those were right. It's optional so older pages still save.)
-//   GET  /leaderboard/endless?board=overall|nolifelines  -> { ok, board, scores: [ top 10, one row per player ] }
+//   GET  /leaderboard/endless?board=overall|nolifelines  -> { ok, board, scores: [ top 25 entries; each player can hold their best 3 runs ] }
+//   (In POST /runs, rank / rankNoLifelines is the place of THIS run on the board, or null if it isn't one of the player's best 3 there.)
 //
 // Keep the numbers in the "game rules" block in step with CONFIG at the top of game.js.
 
@@ -21,7 +22,8 @@ export const SCORE_STEP = 25;                             // every amount in the
 // ---- sanity limits ----
 export const MAX_QUESTIONS = 2000;                        // in one run
 export const MAX_ENDLESS_SCORE = 1000000;
-const TOP_N = 10;
+const TOP_N = 25;                                         // entries on the endless board
+const PER_PLAYER = 3;                                     // ...and each player can hold up to this many of them (their best runs)
 const DEFAULT_SECONDS_BETWEEN_RUNS = 10;                  // per profile; 0 switches it off
 
 const LEVELS = ["easy", "medium", "hard"];
@@ -94,13 +96,13 @@ const SELECT_ROWS = `
     FROM endless_runs r JOIN profiles p ON p.id = r.profile_id
     WHERE r.score > 0 AND (?1 = 0 OR r.lifelines = '')
   )
-  WHERE rn = 1
+  WHERE rn <= ?3
   ORDER BY score DESC, created_at ASC, id ASC
   LIMIT ?2`;
 
-/** Top 10, one row per player (their best run). board is "overall" or "nolifelines". */
+/** Top 25 entries, each player's best 3 runs at most. board is "overall" or "nolifelines" (then only runs with no lifelines count, so it's their best 3 of those). */
 export async function topEndless(env, board, meId) {
-  const { results } = await env.DB.prepare(SELECT_ROWS).bind(board === "nolifelines" ? 1 : 0, TOP_N).all();
+  const { results } = await env.DB.prepare(SELECT_ROWS).bind(board === "nolifelines" ? 1 : 0, TOP_N, PER_PLAYER).all();
   return results.map((r) => ({
     name: r.name,
     score: r.score,
@@ -113,14 +115,25 @@ export async function topEndless(env, board, meId) {
   }));
 }
 
-// 1 = top of the table. Players on the same score share a place.
-async function placeOf(env, profileId, noLifelinesOnly) {
+// Where one saved run sits on a board (1 = top). Players on the same score share a place.
+// Returns null if the run isn't on that board: no money, or not one of that player's best PER_PLAYER runs there
+// (or, for the no-lifelines board, the run used a lifeline).
+async function placeOfRun(env, profileId, run, noLifelinesOnly) {
+  if (!run || run.score <= 0) return null;
+  if (noLifelinesOnly && run.lifelines !== "") return null;
   const where = noLifelinesOnly ? "AND lifelines = ''" : "";
-  const mine = await env.DB.prepare(`SELECT MAX(score) AS best FROM endless_runs WHERE profile_id = ?1 AND score > 0 ${where}`).bind(profileId).first();
-  if (!mine || !mine.best) return null;
+  // this player's runs that rank above it (a higher score, or the same score saved earlier)
+  const own = await env.DB
+    .prepare(`SELECT COUNT(*) AS n FROM endless_runs WHERE profile_id = ?1 AND score > 0 ${where} AND (score > ?2 OR (score = ?2 AND id < ?3))`)
+    .bind(profileId, run.score, run.id)
+    .first();
+  if (own.n >= PER_PLAYER) return null;
   const ahead = await env.DB
-    .prepare(`SELECT COUNT(*) AS n FROM (SELECT profile_id FROM endless_runs WHERE score > 0 ${where} GROUP BY profile_id HAVING MAX(score) > ?1)`)
-    .bind(mine.best)
+    .prepare(`SELECT COUNT(*) AS n FROM (
+                SELECT score, ROW_NUMBER() OVER (PARTITION BY profile_id ORDER BY score DESC, created_at ASC, id ASC) AS rn
+                FROM endless_runs WHERE score > 0 ${where}
+              ) WHERE rn <= ?2 AND score > ?1`)
+    .bind(run.score, PER_PLAYER)
     .first();
   return ahead.n + 1;
 }
@@ -146,15 +159,18 @@ export async function handlePostRun(request, env) {
   if (checked.error) return fail(request, 400, checked.error);
   const run = checked.run;
 
-  const answer = async (profileRow, newBest, saved) => json(request, {
-    ok: true,
-    saved,
-    newBest,
-    profile: profileJson(profileRow),
-    rank: await placeOf(env, me.id, false),
-    rankNoLifelines: await placeOf(env, me.id, true),
-    scores: await topEndless(env, "overall", me.id),
-  }, saved ? 201 : 200);
+  const answer = async (profileRow, newBest, saved) => {
+    const row = await env.DB.prepare("SELECT id, score, lifelines FROM endless_runs WHERE profile_id = ?1 AND run_id = ?2").bind(me.id, run.runId).first();
+    return json(request, {
+      ok: true,
+      saved,
+      newBest,
+      profile: profileJson(profileRow),
+      rank: await placeOfRun(env, me.id, row, false),
+      rankNoLifelines: await placeOfRun(env, me.id, row, true),
+      scores: await topEndless(env, "overall", me.id),
+    }, saved ? 201 : 200);
+  };
 
   // The same run sent twice (a retry after a bad connection) is not saved twice.
   const already = await env.DB.prepare("SELECT 1 AS x FROM endless_runs WHERE profile_id = ?1 AND run_id = ?2").bind(me.id, run.runId).first();

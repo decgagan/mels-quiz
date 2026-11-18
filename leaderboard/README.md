@@ -17,8 +17,8 @@ The shared back end for Mel's Quiz: player profiles and the leaderboards.
 | `GET /me` | The signed-in player's name and basic counters. |
 | `GET /me/stats` | The signed-in player's full stats page (totals, accuracy, money, by difficulty, big questions, lifelines, weekly), worked out from their saved games. |
 | `POST /me/delete` | Delete the signed-in player's profile and all their scores. |
-| `POST /runs` | Save a finished endless game (signed in). |
-| `GET /leaderboard/endless?board=overall` or `board=nolifelines` | Top 10, one row per player (their best game). |
+| `POST /runs` | Save a finished endless game (signed in). The reply's `rank` / `rankNoLifelines` is the place of *this game* on the board (players on equal scores share a place), or `null` if it isn't one of the player's best 3 there. |
+| `GET /leaderboard/endless?board=overall` or `board=nolifelines` | Top 25 entries. Each player can hold up to their best 3 games on it (for `nolifelines`, their best 3 games with no lifelines). A player can therefore appear up to 3 times. |
 | `GET /weekly/state` | This week's key (the Monday's date), when it ends, and the signed-in player's runs. |
 | `POST /weekly/start` | Start a topic (`{ "slot": 0 }`, 0 to 2). Refused if that topic was already started this week. |
 | `POST /weekly/finish` | Save a finished weekly run. |

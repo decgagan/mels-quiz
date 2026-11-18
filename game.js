@@ -795,13 +795,13 @@ var CONFIG = {
     });
   }
 
-  // ---- the Leaderboard screen from the start page: Top 10 / No lifelines
+  // ---- the Leaderboard screen from the start page: Top 25 / No lifelines
   var lbTab = "overall";
   var lbBack = null;
   function showLeaderboardScreen() {
     lbBack = showStart;
     lbTab = "overall";
-    $("leaderboard-title").textContent = "🏆 Top 10 leaderboard";
+    $("leaderboard-title").textContent = "🏆 Top 25 leaderboard";
     $("lb-tabs").hidden = false;
     renderLbTabs();
     show("leaderboard");
@@ -812,8 +812,8 @@ var CONFIG = {
     $("tab-lb-overall").setAttribute("aria-selected", lbTab === "overall" ? "true" : "false");
     $("tab-lb-nolifelines").setAttribute("aria-selected", lbTab === "nolifelines" ? "true" : "false");
     $("lb-sub").textContent = lbTab === "overall"
-      ? "Each player's best game. How much money did you win before you ran out of lives?"
-      : "Only games where no lifeline was used.";
+      ? "The 25 best games. Each player can be on it up to three times, with their best three games."
+      : "Only games where no lifeline was used (up to three per player).";
   }
   function loadEndlessBoard() {
     loadBoard($("board-main"), "/leaderboard/endless?board=" + lbTab, "endless");
@@ -856,9 +856,11 @@ var CONFIG = {
   function showSavedResult(data) {
     var msg;
     if (data.rank && data.rank <= data.scores.length) msg = "🎉 " + (data.newBest ? "New personal best! " : "") + "You're number " + data.rank + " on the leaderboard!";
-    else if (data.rank) msg = "Saved! You're number " + data.rank + " on the leaderboard. Keep going to reach the top 10.";
+    else if (data.rank) msg = "Saved! You're number " + data.rank + " on the leaderboard. Keep going to reach the top 25.";
+    else if (lastRun.score > 0 && data.rankNoLifelines && lastRun.lifelines.length === 0) msg = "Saved! It isn't one of your best three games overall, but you're number " + data.rankNoLifelines + " on the No lifelines board.";
+    else if (lastRun.score > 0) msg = "Saved! That wasn't one of your best three games, so it isn't on the leaderboard.";
     else msg = "Saved to your profile.";
-    if (data.rankNoLifelines && lastRun.lifelines.length === 0) msg += " And number " + data.rankNoLifelines + " with no lifelines.";
+    if (data.rank && data.rankNoLifelines && lastRun.lifelines.length === 0) msg += " And number " + data.rankNoLifelines + " with no lifelines.";
     endStatus(msg, "");
     renderBoard($("board-end"), data.scores, "endless");
     $("btn-end-boards").hidden = false;
