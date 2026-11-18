@@ -907,6 +907,7 @@ var CONFIG = {
     $("feedback").hidden = false;
     updateMoney(true);
     updateLifelines();
+    renderTimer();   // the clock has stopped: drop the red "hurry up" look if it was in the last five seconds
     $("lifelines").hidden = true;   // nothing left to press until the next question, so keep the screen clear
     var next = $("btn-next");
     if (mode === "weekly") next.textContent = endReason ? "See my result" : "Next question";
