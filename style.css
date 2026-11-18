@@ -210,7 +210,7 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
   display: inline-block;
   margin: 10px 0 0;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: 16px;   /* a pill on one line, a rounded box (not a blob) if it ever wraps */
   color: #fff;
   font-weight: bold;
   font-size: 0.95rem;
@@ -370,7 +370,7 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 
 .form-card { margin: 0 0 8px; padding: 16px; background: #fff8ec; border: 3px solid var(--option-border); border-radius: 14px; }
 .form-card label { display: block; font-weight: bold; font-size: 1.15rem; margin: 12px 0 8px; }
-.form-card label:first-child { margin-top: 0; }
+.form-card > label:first-child { margin-top: 0; }
 .form-card input[type="text"], .form-card input[type="password"] {
   width: 100%;
   min-height: 60px;
@@ -546,3 +546,4 @@ body[data-screen="question"] h2#question-text { margin: 14px 0 16px; }
   .lifeline .ll-name { flex: 1; }
   .lifeline .ll-cost { flex: none; }
 }
+.board-gap { text-align: center; color: var(--muted); font-size: 1.4rem; line-height: 1; letter-spacing: 4px; }

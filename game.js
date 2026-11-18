@@ -825,7 +825,8 @@ var CONFIG = {
   }
 
   // Player names are untrusted: they are only ever put on the page with textContent, never innerHTML.
-  function renderBoard(box, scores, kind, weekKey) {
+  // `limit` (the end screen) shows only the top few rows, plus the player's own rows further down.
+  function renderBoard(box, scores, kind, weekKey, limit) {
     box.innerHTML = "";
     if (!scores || !scores.length) {
       var empty = document.createElement("p");
@@ -836,7 +837,17 @@ var CONFIG = {
     }
     var list = document.createElement("ol");
     list.className = "board";
+    var lastShown = -1;
     scores.forEach(function (row, i) {
+      if (limit && i >= limit && !row.me) return;
+      if (i > lastShown + 1) {   // some places were skipped: show a little "⋯" so the numbers make sense
+        var gap = document.createElement("li");
+        gap.className = "board-gap";
+        gap.setAttribute("aria-hidden", "true");
+        gap.textContent = "⋯";
+        list.appendChild(gap);
+      }
+      lastShown = i;
       var li = document.createElement("li");
       li.className = "board-row" + (row.me ? " me" : "");
       var rank = document.createElement("span");
@@ -894,14 +905,19 @@ var CONFIG = {
 
   // path is like "/leaderboard/endless?board=overall"; kind is "endless" or "weekly"
   function loadBoard(box, path, kind) {
+    // Only the newest request may draw: switching tabs quickly could otherwise let a slower, older answer
+    // arrive last and show the wrong board under the selected tab.
+    var mine = box.loadToken = (box.loadToken || 0) + 1;
     box.innerHTML = "";
     var wait = document.createElement("p");
     wait.className = "small-note";
     wait.textContent = "Loading the leaderboard...";
     box.appendChild(wait);
     apiRequest("GET", path).then(function (data) {
+      if (box.loadToken !== mine) return;
       renderBoard(box, data.scores, kind, data.week);
     }).catch(function () {
+      if (box.loadToken !== mine) return;
       box.innerHTML = "";
       var msg = document.createElement("p");
       msg.className = "board-error";
@@ -983,7 +999,7 @@ var CONFIG = {
     else msg = "Saved to your profile.";
     if (data.rank && data.rankNoLifelines && lastRun.lifelines.length === 0) msg += " And number " + data.rankNoLifelines + " with no lifelines.";
     endStatus(msg, "");
-    renderBoard($("board-end"), data.scores, "endless");
+    renderBoard($("board-end"), data.scores, "endless", null, 10);
     $("btn-end-boards").hidden = false;
   }
 
@@ -1385,6 +1401,9 @@ var CONFIG = {
     focusQuietly($("weekly-title"));
     weeklyMessage("Loading this week's challenge...", false);
     apiRequest("GET", "/weekly/state").then(function (state) {
+      // We sent a sign-in the Worker no longer knows (say the profile was deleted on another phone).
+      // Forget it here too, so the start screen doesn't go on saying "Playing as ..." for a dead profile.
+      if (session && state.signedIn === false) signedOutByServer();
       weeklyState = state;
       renderWeekly();
     }).catch(function () {
