@@ -1,6 +1,6 @@
 # Mel's Quiz
 
-A friendly game-show style general knowledge quiz for Mel. Win as much money as you can by answering questions, and use lifelines when you're stuck. 1,000 multiple-choice questions (each with a hint) with a UK flavour, played on a phone or a laptop. It works with no sign-up at all. The optional leaderboards use a simple name-and-PIN profile (no email, no tracking), and there's no build step - just plain HTML, CSS and JavaScript.
+A friendly game-show style general knowledge quiz for Mel. Win as much money as you can by answering questions, and use lifelines when you're stuck. 1,050 multiple-choice questions (each with a hint) with a UK flavour, played on a phone or a laptop. It works with no sign-up at all. The optional leaderboards use a simple name-and-PIN profile (no email, no tracking), and there's no build step - just plain HTML, CSS and JavaScript.
 
 ## How to play
 
@@ -35,6 +35,14 @@ Each lifeline can be used **once per game**, and they **never refill**, however 
 Every question in `questions.js` and `weekly.js` has a `hint`. A hint must never contain the answer itself (`node tests/check-questions.js` checks).
 
 When the game ends you see **You won £X!** and your **best winnings** are remembered on that device (in the browser's `localStorage`, so they never leave it).
+
+### Sound and other touches
+
+- **Sound effects are off** to begin with. The little speaker button in the top corner of the card switches them on or off, and the device remembers the choice. The sounds are made by the browser itself (there are no sound files): a cheerful jingle for a right answer, two low notes for a wrong one, a soft tick in the last five seconds, a phone ring for Ask Dec and a fanfare for the big 10th question.
+- From the third right answer in a row the game counts the **streak** ("🔥 4 right in a row!"), and it says so when you pass your best winnings on that device. These are just for fun and never change the money.
+- If the **Back** button (or a Back swipe on a phone) is pressed in the middle of a game, the game asks **"Leave this game?"** instead of quietly closing it. The clock keeps running while it asks. Anywhere else, Back goes to the start screen, and from the start screen it leaves the page as usual.
+- There are gentle animations (the money counts up, a lost heart pulses, confetti for a new best or a big question answered right). Anyone whose phone or computer is set to **reduce motion** gets none of them.
+- On a laptop the four answers sit two by two, so the question, the answers and all six lifelines fit on the screen. On a phone they sit one under another.
 
 ## Changing the money, timer and lifelines
 
@@ -88,7 +96,7 @@ Change a number or the wording, save, and refresh the page. The `askDec.odds` va
 
 When `leaderboardUrl` in `CONFIG` is filled in, the game has shared leaderboards. They need a **profile** (see below), because every score belongs to a player:
 
-- When a signed-in player's game ends, the score is saved automatically and the leaderboard is shown with their row (or rows) highlighted. If they haven't got a profile, the end screen offers to create one (or sign in) and then saves that game.
+- When a signed-in player's game ends, the score is saved automatically and the end screen shows the top 10, plus the player's own rows if they're further down, all highlighted. **See all the leaderboards** shows the full top 25. If they haven't got a profile, the end screen offers to create one (or sign in) and then saves that game.
 - The start screen has a **Leaderboard** button with two tabs: **Top 25** and **No lifelines**. The Top 25 is the 25 best games, and **each player can be on it up to three times, with their best three games**. The No lifelines tab works the same way, using each player's best three games where they used no lifeline. When a game is saved, the end screen says where *that game* landed, or that it wasn't one of the player's best three. All of a player's rows are highlighted, so they're easy to spot.
 - Each row has a second line with the full breakdown of that game, for example **12 easy · 5 medium · 3 hard · 2 big** ("big" are the every-10th-question ones, counted separately from the other hard questions), and a third line showing which lifelines were used as little icons (✂️ Remove a wrong answer, ⏱️ Stop the clock, 📞 Ask Dec, 💡 Hint, 🔄 Swap the question, 🎲 Double or nothing) or **No lifelines**. Rows from before the big questions were tracked show them from the question count.
 - Each saved game records: the money won, how many easy / medium / hard questions were answered and got right, how many of the big 10th questions were right, and which lifelines were used. The Worker refuses numbers that don't add up (see `leaderboard/src/endless.js`).
@@ -112,10 +120,10 @@ A second way to play, once the leaderboard Worker is switched on. Every week has
 
 ### Adding future weeks
 
-The weekly questions are in **`weekly.js`**. It currently has four weeks (Monday 16 Nov, 23 Nov, 30 Nov and 7 Dec 2026). **If there's no entry for the current week, the weekly challenge says "no challenge this week yet", so add new weeks before they start.**
+The weekly questions are in **`weekly.js`**. It currently has eight weeks, from Monday 16 November 2026 to Monday 4 January 2027 (that last week ends on Sunday 10 January 2027). **If there's no entry for the current week, the weekly challenge says "no challenge this week yet", so add new weeks before they start.**
 
-1. Open `weekly.js` and copy a whole week block (from the `"2026-12-07": {` line to its closing `},`).
-2. Paste it after the last week and change the date to the new week's **Monday** (written like `"2026-12-14"`), the three topics (`id`, `title`, `emoji`, `blurb`) and the ten questions in each.
+1. Open `weekly.js` and copy a whole week block (from the `"2027-01-04": {` line to its closing `},`).
+2. Paste it after the last week and change the date to the new week's **Monday** (written like `"2027-01-11"`), the three topics (`id`, `title`, `emoji`, `blurb`) and the ten questions in each.
 3. Each question is `{ q: "...", options: ["A", "B", "C", "D"], answer: "B", hint: "A short clue", level: "easy" }`. The `hint` is shown by the Hint lifeline: it should nudge without giving the answer away, and must not contain the answer. Use `level: "easy"` (worth £100) for the first six or so and `level: "medium"` (£250) for the last few. The questions are asked in the order you write them.
 4. Each topic also has `spares`: exactly **two** extra questions (one `easy`, one `medium`), written the same way. They're only used by the **Swap the question** lifeline.
 5. `answer` must be written **exactly** like one of the four options. Don't reuse a question from anywhere else in `weekly.js` or `questions.js`.
@@ -153,7 +161,7 @@ The profile code is in `leaderboard/src/profiles.js`, with the tables in `leader
 
 ## How to add questions
 
-`questions.js` has three separate sets: `easy` (400 questions), `medium` (300) and `hard` (300). The set a question is in decides which button it appears under. Copy any line inside the set you want, for example:
+`questions.js` has three separate sets: `easy` (450 questions), `medium` (300) and `hard` (300). The set a question is in decides which button it appears under. Copy any line inside the set you want, for example:
 
 ```js
 { q: "What is the capital city of France?", options: ["Paris", "Lyon", "Marseille", "Nice"], answer: "Paris", hint: "It's home to the Eiffel Tower." },
