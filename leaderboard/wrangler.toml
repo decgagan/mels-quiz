@@ -9,5 +9,5 @@ compatibility_date = "2025-06-01"
 binding = "DB"
 database_name = "mels-quiz-scores"
 # >>> PASTE THE database_id THAT `wrangler d1 create` PRINTS BETWEEN THE QUOTES <<<
-database_id = "PASTE-YOUR-DATABASE-ID-HERE"
+database_id = "7d624a73-ac62-45c2-9940-42c2d34ec4b7"
 migrations_dir = "migrations"

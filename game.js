@@ -32,7 +32,7 @@ var CONFIG = {
   // SHARED LEADERBOARD. Paste the web address of the Cloudflare Worker here (see leaderboard/README.md),
   // for example "https://mels-quiz-leaderboard.your-name.workers.dev".
   // While this is empty ("") the leaderboard is switched off and hidden, and the game works as normal.
-  leaderboardUrl: "",
+  leaderboardUrl: "https://mels-quiz-leaderboard.decgagan.workers.dev",
   maxNameLength: 20,             // longest name allowed (the Worker enforces this too)
   nameStorageKey: "melsQuiz.playerName" // remembers the name she last typed, on this device only
 };
