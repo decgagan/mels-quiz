@@ -254,3 +254,50 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   #timer-fill { transition: none; }
 }
+
+/* ---------- shared leaderboard ---------- */
+.end-leaderboard { margin-top: 8px; }
+.submit-form { margin-bottom: 8px; padding: 16px; background: #fff8ec; border: 3px solid var(--option-border); border-radius: 14px; }
+.submit-form label { display: block; font-weight: bold; font-size: 1.15rem; margin-bottom: 8px; }
+.submit-form input {
+  width: 100%;
+  min-height: 60px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 1.3rem;
+  color: var(--text);
+  background: #fff;
+  border: 3px solid var(--option-border);
+  border-radius: 14px;
+}
+.submit-form input:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
+.form-msg { min-height: 1.4em; margin: 8px 0 0; color: var(--bad); font-weight: bold; }
+.form-msg:empty { min-height: 0; margin: 0; }
+
+.board-result { margin: 14px 0 8px; padding: 12px 14px; font-size: 1.15rem; font-weight: bold; text-align: center; background: var(--good-bg); color: var(--good); border: 3px solid var(--good); border-radius: 14px; }
+.board-error { margin: 14px 0 0; padding: 12px 14px; font-size: 1.1rem; font-weight: bold; text-align: center; background: var(--bad-bg); color: var(--bad); border: 3px solid var(--bad); border-radius: 14px; }
+
+.board-wrap { margin-top: 12px; }
+.board { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.board-row {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--option);
+  border: 3px solid var(--option-border);
+  border-radius: 14px;
+  font-size: 1.1rem;
+}
+.board-row.me { background: #fff1b8; border-color: #b57700; box-shadow: 0 0 0 3px rgba(181, 119, 0, 0.25); }
+.board-rank { font-size: 1.4rem; font-weight: bold; text-align: center; color: var(--muted); }
+.board-who { display: flex; flex-direction: column; min-width: 0; }
+.board-name { font-weight: bold; font-size: 1.2rem; overflow-wrap: anywhere; }
+.board-date { font-size: 0.8rem; color: var(--muted); }
+.board-you { font-size: 0.85rem; font-weight: bold; color: #7a4d00; }
+.board-score { font-weight: bold; font-size: 1.25rem; color: var(--good); white-space: nowrap; }
+
+@media (max-width: 480px) {
+  .board-row { grid-template-columns: 2rem 1fr auto; gap: 8px; padding: 8px 10px; }
+}

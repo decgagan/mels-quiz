@@ -27,14 +27,21 @@ var CONFIG = {
   phoneFriendMessage: "Ask Dec! Take your time.", // shown while the clock is paused
 
   // The best winnings are remembered in the browser under this name.
-  storageKey: "melsQuiz.bestWinnings"
+  storageKey: "melsQuiz.bestWinnings",
+
+  // SHARED LEADERBOARD. Paste the web address of the Cloudflare Worker here (see leaderboard/README.md),
+  // for example "https://mels-quiz-leaderboard.your-name.workers.dev".
+  // While this is empty ("") the leaderboard is switched off and hidden, and the game works as normal.
+  leaderboardUrl: "",
+  maxNameLength: 20,             // longest name allowed (the Worker enforces this too)
+  nameStorageKey: "melsQuiz.playerName" // remembers the name she last typed, on this device only
 };
 
 (function () {
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
-  var screens = { start: $("screen-start"), choose: $("screen-choose"), question: $("screen-question"), end: $("screen-end") };
+  var screens = { start: $("screen-start"), leaderboard: $("screen-leaderboard"), choose: $("screen-choose"), question: $("screen-question"), end: $("screen-end") };
 
   // ---- game state
   var money, asked, pools, usedLifelines, current, currentLevel;
@@ -388,6 +395,7 @@ var CONFIG = {
     $("end-message").textContent = endMessage(money);
     $("end-best").textContent = newBest ? "🎉 That's your best winnings so far!" :
       (best === null ? "" : "Your best winnings: " + fmt(best));
+    setupEndLeaderboard();
     show("end");
     $("end-title").focus();
   }
@@ -395,6 +403,202 @@ var CONFIG = {
   function takeMoney() {
     endReason = "take";
     finish();
+  }
+
+  // ---------------------------------------------------------------- shared leaderboard
+  // Everything here is switched off when CONFIG.leaderboardUrl is empty.
+  function lbUrl() {
+    var u = String(CONFIG.leaderboardUrl || "").replace(/^\s+|\s+$/g, "");
+    if (!u) return "";
+    return u.replace(/\/+$/, "").replace(/\/scores$/, "") + "/scores";
+  }
+  var lbOn = !!lbUrl();
+  var submitted = false, submitting = false;
+
+  // Talks to the Worker. Resolves with the parsed JSON, or rejects with an Error that has
+  // .status (HTTP status, or 0 for a network problem) and .serverMessage (the Worker's own words).
+  function lbRequest(method, body) {
+    return new Promise(function (resolve, reject) {
+      var ctl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 10000);
+      var opts = { method: method, cache: "no-store" };
+      if (ctl) opts.signal = ctl.signal;
+      if (body) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
+      fetch(lbUrl(), opts).then(function (res) {
+        clearTimeout(timer);
+        return res.json().catch(function () { return null; }).then(function (data) {
+          if (res.ok && data) { resolve(data); return; }
+          var err = new Error("HTTP " + res.status);
+          err.status = res.status;
+          err.serverMessage = data && data.error;
+          reject(err);
+        });
+      }).catch(function (e) {
+        clearTimeout(timer);
+        if (e && typeof e.status === "number") { reject(e); return; }
+        var err = new Error("network"); err.status = 0; reject(err);
+      });
+    });
+  }
+
+  function shortDate(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+
+  // Player names are untrusted: they are only ever put on the page with textContent, never innerHTML.
+  function renderBoard(box, scores, highlightId) {
+    box.innerHTML = "";
+    if (!scores || !scores.length) {
+      var empty = document.createElement("p");
+      empty.className = "small-note";
+      empty.textContent = "No scores yet. Be the first on the board!";
+      box.appendChild(empty);
+      return;
+    }
+    var list = document.createElement("ol");
+    list.className = "board";
+    scores.forEach(function (row, i) {
+      var li = document.createElement("li");
+      li.className = "board-row" + (highlightId !== undefined && row.id === highlightId ? " me" : "");
+      var rank = document.createElement("span");
+      rank.className = "board-rank";
+      rank.textContent = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : String(i + 1);
+      rank.setAttribute("aria-label", "Place " + (i + 1));
+      var who = document.createElement("span");
+      who.className = "board-who";
+      var nm = document.createElement("span");
+      nm.className = "board-name";
+      nm.textContent = row.name;
+      who.appendChild(nm);
+      var when = shortDate(row.date);
+      if (when) {
+        var dt = document.createElement("span");
+        dt.className = "board-date";
+        dt.textContent = when;
+        who.appendChild(dt);
+      }
+      if (li.className.indexOf("me") !== -1) {
+        var tag = document.createElement("span");
+        tag.className = "board-you";
+        tag.textContent = "That's you!";
+        who.appendChild(tag);
+      }
+      var pts = document.createElement("span");
+      pts.className = "board-score";
+      pts.textContent = fmt(row.score);
+      li.appendChild(rank); li.appendChild(who); li.appendChild(pts);
+      list.appendChild(li);
+    });
+    box.appendChild(list);
+  }
+
+  function loadBoard(box, highlightId) {
+    box.innerHTML = "";
+    var wait = document.createElement("p");
+    wait.className = "small-note";
+    wait.textContent = "Loading the leaderboard...";
+    box.appendChild(wait);
+    lbRequest("GET").then(function (data) {
+      renderBoard(box, data.scores, highlightId);
+    }).catch(function () {
+      box.innerHTML = "";
+      var msg = document.createElement("p");
+      msg.className = "board-error";
+      msg.textContent = "Couldn't load the leaderboard just now. Please try again in a little while.";
+      var retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "btn btn-secondary";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", function () { loadBoard(box, highlightId); });
+      box.appendChild(msg);
+      box.appendChild(retry);
+    });
+  }
+
+  function showLeaderboardScreen() {
+    show("leaderboard");
+    loadBoard($("board-main"));
+    $("leaderboard-title").focus();
+  }
+
+  function loadName() {
+    try { return window.localStorage.getItem(CONFIG.nameStorageKey) || ""; } catch (e) { return ""; }
+  }
+  function saveName(n) {
+    try { window.localStorage.setItem(CONFIG.nameStorageKey, n); } catch (e) { /* ignore */ }
+  }
+
+  function setupEndLeaderboard() {
+    var wrap = $("end-leaderboard");
+    submitted = false; submitting = false;
+    $("board-end").innerHTML = "";
+    $("board-result").hidden = true;
+    $("board-result").textContent = "";
+    $("submit-msg").textContent = "";
+    if (!lbOn) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    var canSubmit = money > 0;
+    $("submit-form").hidden = !canSubmit;
+    $("btn-submit").disabled = false;
+    $("btn-submit").textContent = "Add me to the leaderboard";
+    $("btn-show-board").hidden = false;
+    $("btn-show-board").textContent = canSubmit ? "Just show me the leaderboard" : "See the leaderboard";
+    if (canSubmit) $("name-input").value = loadName();
+  }
+
+  function cleanName(raw) {
+    return String(raw).replace(/^\s+|\s+$/g, "");
+  }
+
+  function submitScore(ev) {
+    ev.preventDefault();
+    if (!lbOn || submitted || submitting) return;
+    var msg = $("submit-msg");
+    var name = cleanName($("name-input").value);
+    var len = Array.from(name).length;
+    if (len < 1) { msg.textContent = "Please type your name first."; $("name-input").focus(); return; }
+    if (len > CONFIG.maxNameLength) { msg.textContent = "Names can be up to " + CONFIG.maxNameLength + " letters long. Could you shorten it?"; $("name-input").focus(); return; }
+    submitting = true;
+    var btn = $("btn-submit");
+    btn.disabled = true;
+    btn.textContent = "Adding you...";
+    msg.textContent = "";
+    lbRequest("POST", { name: name, score: money }).then(function (data) {
+      submitting = false; submitted = true;
+      saveName(name);
+      $("submit-form").hidden = true;
+      $("btn-show-board").hidden = true;
+      var entry = data.entry || {};
+      var result = $("board-result");
+      result.textContent = (entry.rank && entry.rank <= data.scores.length)
+        ? "🎉 Well done, " + name + "! You're number " + entry.rank + " on the leaderboard."
+        : "Thanks, " + name + "! You scored " + fmt(money) + ", but not quite enough for the top 10 this time. Have another go!";
+      result.hidden = false;
+      renderBoard($("board-end"), data.scores, entry.id);
+      result.scrollIntoView({ block: "nearest" });
+    }).catch(function (err) {
+      submitting = false;
+      btn.disabled = false;
+      btn.textContent = "Add me to the leaderboard";
+      if (err.status === 429 || err.status === 400) msg.textContent = err.serverMessage || "That didn't work. Please check your name and try again.";
+      else msg.textContent = "Couldn't add you to the leaderboard just now. Please check your connection and try again.";
+    });
+  }
+
+  function setupLeaderboardUi() {
+    if (!lbOn) return;
+    $("btn-leaderboard").hidden = false;
+    $("footer-note").textContent = "No sign-ups, no tracking. Your best winnings are saved on this device. If you add your name to the leaderboard, your name and score are shown to everyone who plays.";
+    $("name-input").maxLength = CONFIG.maxNameLength;
+    $("btn-leaderboard").addEventListener("click", showLeaderboardScreen);
+    $("btn-board-back").addEventListener("click", showStart);
+    $("submit-form").addEventListener("submit", submitScore);
+    $("btn-show-board").addEventListener("click", function () {
+      $("btn-show-board").hidden = true;
+      loadBoard($("board-end"));
+    });
   }
 
   // ---------------------------------------------------------------- wire up
@@ -407,5 +611,6 @@ var CONFIG = {
   $("ll-phoneFriend").addEventListener("click", usePhoneFriend);
   $("btn-friend-back").addEventListener("click", friendBack);
 
+  setupLeaderboardUi();
   showStart();
 })();

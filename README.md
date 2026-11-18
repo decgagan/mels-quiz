@@ -1,6 +1,6 @@
 # Mel's Quiz
 
-A friendly game-show style general knowledge quiz for Mel. Win as much money as you can by answering questions, and use lifelines when you're stuck. 400 multiple-choice questions with a UK flavour, played on her own, on a phone or a laptop. No sign-ups, no tracking, no build step - just plain HTML, CSS and JavaScript.
+A friendly game-show style general knowledge quiz for Mel. Win as much money as you can by answering questions, and use lifelines when you're stuck. 400 multiple-choice questions with a UK flavour, played on her own, on a phone or a laptop. No sign-ups, no tracking (the optional leaderboard only stores the name and score a player chooses to add), no build step - just plain HTML, CSS and JavaScript.
 
 ## How to play
 
@@ -52,11 +52,25 @@ var CONFIG = {
     phoneFriend: { label: "Ask Dec",               cost: 75 }
   },
   phoneFriendMessage: "Ask Dec! Take your time.",
-  storageKey: "melsQuiz.bestWinnings"
+  storageKey: "melsQuiz.bestWinnings",
+  leaderboardUrl: "",   // the shared leaderboard; empty = switched off and hidden
+  maxNameLength: 20,
+  nameStorageKey: "melsQuiz.playerName"
 };
 ```
 
 Change a number or the wording, save, and refresh the page. (If you change the prizes or lifeline costs a lot, her old best winnings will still be shown. To start the best-winnings record afresh, change `storageKey` to a new name.)
+
+## Shared leaderboard (optional)
+
+When `leaderboardUrl` in `CONFIG` is filled in, players can add their name to a shared top 10:
+
+- After a game where they won more than £0, the end screen has a name box and an **Add me to the leaderboard** button. The top 10 is then shown with their entry highlighted.
+- The start screen has a **Leaderboard** button to look at the top 10 at any time.
+- If the leaderboard can't be reached, the game says so kindly and carries on working.
+- When `leaderboardUrl` is empty (`""`), all the leaderboard buttons are hidden and the game works exactly as before.
+
+The scores live in a small Cloudflare Worker with a D1 database, in the `leaderboard/` folder. See `leaderboard/README.md` for the exact steps to set it up. Only the name, score and date are stored, there's no swear filter, and the name is only ever shown as plain text.
 
 ## Files
 
@@ -67,6 +81,7 @@ Change a number or the wording, save, and refresh the page. (If you change the p
 | `game.js` | The game itself, with the `CONFIG` at the top |
 | `questions.js` | All the questions - **this is the one to edit** |
 | `tests/check-questions.js` | Checks the question file is tidy (needs Node.js) |
+| `leaderboard/` | The optional shared leaderboard (Cloudflare Worker + D1 database) |
 
 ## How to add questions
 

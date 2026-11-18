@@ -1,0 +1,13 @@
+# Cloudflare Worker + D1 database for Mel's Quiz's shared leaderboard.
+# See README.md in this folder for the exact commands to run.
+
+name = "mels-quiz-leaderboard"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mels-quiz-scores"
+# >>> PASTE THE database_id THAT `wrangler d1 create` PRINTS BETWEEN THE QUOTES <<<
+database_id = "PASTE-YOUR-DATABASE-ID-HERE"
+migrations_dir = "migrations"
