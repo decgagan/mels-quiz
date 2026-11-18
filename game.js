@@ -110,6 +110,9 @@ var CONFIG = {
   function show(name) {
     Object.keys(screens).forEach(function (k) { screens[k].hidden = (k !== name); });
     document.body.setAttribute("data-screen", name);
+    currentScreen = name;
+    closeLeaveDialog();
+    if (name === "start") dropBackEntry(); else pushBackEntry();
     try { window.scrollTo(0, 0); } catch (e) { /* ignore */ }
   }
   // Moves the keyboard / screen reader focus without scrolling the page (a plain focus() would jump to it).
@@ -144,6 +147,7 @@ var CONFIG = {
   // ---------------------------------------------------------------- start
   function showStart(flash) {
     stopTimer();
+    setPlaying(false);
     var fl = $("start-flash");
     fl.hidden = !(typeof flash === "string" && flash);
     fl.textContent = (typeof flash === "string") ? flash : "";
@@ -153,6 +157,78 @@ var CONFIG = {
     $("rule-seconds").textContent = CONFIG.secondsPerQuestion;
     show("start");
     focusQuietly($("btn-start"));
+  }
+
+  // ---------------------------------------------------------------- the browser's Back button
+  // On a phone it's easy to swipe Back by accident, and that used to leave the page and lose the game
+  // (in the weekly challenge, the week's only go at that topic). So every screen except the start screen
+  // sits on one extra history entry of our own. Back takes that entry away: in a game we put it straight
+  // back and ask "Leave this game?" (the clock keeps running, so it's no way to pause); anywhere else Back
+  // goes to the start screen. On the start screen there's no entry of ours, so Back leaves the page as normal.
+  var currentScreen = "start";
+  var playing = false;         // a game, or a weekly go, is under way
+  var backEntry = false;       // our history entry is in place (pushed by this page)
+  var ignoreNextPop = false;   // the next "popstate" is one we caused ourselves
+
+  function onOurEntry() {
+    try { return !!(window.history.state && window.history.state.melsQuiz); } catch (e) { return false; }
+  }
+  function pushBackEntry() {
+    if (backEntry) return;
+    try { window.history.pushState({ melsQuiz: true }, ""); backEntry = true; } catch (e) { /* ignore */ }
+  }
+  function dropBackEntry() {
+    if (!backEntry || !onOurEntry()) return;   // never step back off the page itself
+    backEntry = false;
+    ignoreNextPop = true;
+    try { window.history.back(); } catch (e) { ignoreNextPop = false; }
+  }
+  window.addEventListener("popstate", function () {
+    if (ignoreNextPop) {
+      ignoreNextPop = false;
+      backEntry = onOurEntry();
+      if (currentScreen !== "start") pushBackEntry();   // something was opened in the meantime
+      return;
+    }
+    backEntry = false;                                   // the player pressed Back: our entry has gone
+    if (playing) { pushBackEntry(); askLeave(); return; }
+    if (currentScreen !== "start") showStart();
+  });
+
+  function onBeforeUnload(e) { e.preventDefault(); e.returnValue = ""; return ""; }
+  // While a game is on, closing or reloading the page asks first too (where the browser allows it).
+  function setPlaying(on) {
+    playing = on;
+    try {
+      if (on) window.addEventListener("beforeunload", onBeforeUnload);
+      else window.removeEventListener("beforeunload", onBeforeUnload);
+    } catch (e) { /* ignore */ }
+  }
+
+  function askLeave() {
+    $("leave-text").textContent = mode === "weekly"
+      ? "You only get one go at each topic a week. If you leave now, this go is used up and won't go on the leaderboard."
+      : (money > 0 ? "If you leave now, this game ends and your " + fmt(money) + " won't be saved." : "If you leave now, this game ends.");
+    var d = $("leave-dialog");
+    if (typeof d.showModal === "function") {
+      if (!d.open) d.showModal();
+      focusQuietly($("btn-leave-stay"));
+    } else if (window.confirm("Leave this game?\n\n" + $("leave-text").textContent)) {
+      leaveGame();
+    }
+  }
+  function closeLeaveDialog() {
+    var d = $("leave-dialog");
+    if (d && d.open && typeof d.close === "function") d.close();
+  }
+  function leaveGame() {
+    closeLeaveDialog();
+    if (!playing) return;
+    if (endReason) { finish(); return; }   // the game had already ended (out of lives, or the 10th weekly question): save it
+    stopTimer();
+    setPlaying(false);
+    if (mode === "weekly") showWeekly("You left " + weeklyTopic.title + " part-way through, so it counts as your go this week.");
+    else showStart();
   }
 
   function makeRunId() {
@@ -166,6 +242,7 @@ var CONFIG = {
   }
 
   function newGame() {
+    setPlaying(true);
     mode = "endless";
     money = CONFIG.startMoney;
     asked = 0;
@@ -709,6 +786,7 @@ var CONFIG = {
   function sum(o) { return o.easy + o.medium + o.hard; }
 
   function finish() {
+    setPlaying(false);
     if (mode === "weekly") { finishWeekly(); return; }
     stopTimer();
     $("end-title").textContent = "Game over";
@@ -1390,6 +1468,7 @@ var CONFIG = {
 
   function showWeekly(note) {
     stopTimer();
+    setPlaying(false);
     mode = "weekly-menu";
     $("weekly-msg").hidden = true;
     $("weekly-guest").hidden = true;
@@ -1529,6 +1608,7 @@ var CONFIG = {
   }
 
   function weeklyBegin() {
+    setPlaying(true);
     mode = "weekly";
     money = 0;
     asked = 0;
@@ -1608,6 +1688,8 @@ var CONFIG = {
   $("ll-hint").addEventListener("click", useHint);
   $("ll-swap").addEventListener("click", useSwap);
   $("ll-double").addEventListener("click", useDouble);
+  $("btn-leave-stay").addEventListener("click", closeLeaveDialog);
+  $("btn-leave-go").addEventListener("click", leaveGame);
 
   setupLeaderboardUi();
   setupProfileUi();

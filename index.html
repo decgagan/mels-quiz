@@ -230,6 +230,14 @@
 
   <p id="footer-note" class="footer">No sign-ups, no tracking. Your best winnings are saved only on this device.</p>
 
+  <!-- Asked when the browser's Back button is pressed in the middle of a game -->
+  <dialog id="leave-dialog" class="dialog" aria-labelledby="leave-title" aria-describedby="leave-text">
+    <h2 id="leave-title" class="center">Leave this game?</h2>
+    <p id="leave-text" class="dialog-text"></p>
+    <button id="btn-leave-stay" class="btn btn-primary" type="button">Keep playing</button>
+    <button id="btn-leave-go" class="btn btn-secondary" type="button">Leave the game</button>
+  </dialog>
+
   <script src="questions.js?v=10"></script>
   <script src="weekly.js?v=10"></script>
   <script src="game.js?v=10"></script>
