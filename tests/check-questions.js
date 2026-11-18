@@ -10,7 +10,7 @@ const weeklySrc = fs.readFileSync(path.join(__dirname, "..", "weekly.js"), "utf8
 const WEEKLY = vm.runInNewContext(weeklySrc + "\n;WEEKLY");
 
 // How many questions each set should have. Change these numbers if you add questions.
-const EXPECTED = { easy: 400, medium: 300, hard: 300 };
+const EXPECTED = { easy: 450, medium: 300, hard: 300 };
 
 const errors = [];
 const seen = new Map(); // normalised question text -> "set #n"
