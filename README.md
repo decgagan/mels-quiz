@@ -1,12 +1,12 @@
 # Mel's Quiz
 
-A friendly game-show style general knowledge quiz for Mel. Win as much money as you can by answering questions, and use lifelines when you're stuck. 400 multiple-choice questions with a UK flavour, played on her own, on a phone or a laptop. No sign-ups, no tracking (the optional leaderboard only stores the name and score a player chooses to add), no build step - just plain HTML, CSS and JavaScript.
+A friendly game-show style general knowledge quiz for Mel. Win as much money as you can by answering questions, and use lifelines when you're stuck. 400 multiple-choice questions with a UK flavour, played on a phone or a laptop. It works with no sign-up at all. The optional leaderboards use a simple name-and-PIN profile (no email, no tracking), and there's no build step - just plain HTML, CSS and JavaScript.
 
 ## How to play
 
 1. Open `index.html` in a web browser (or visit the GitHub Pages address once it's switched on - see below).
-2. Press **Start playing**. You start with **£0**.
-3. Before every question, including the first, pick how hard you want it:
+2. Press **Start playing**. You start with **£0** and **3 lives** (♥♥♥).
+3. Before every question, pick how hard you want it:
 
    | Choice | Win |
    | --- | --- |
@@ -15,13 +15,13 @@ A friendly game-show style general knowledge quiz for Mel. Win as much money as 
    | Hard | £500 |
 
 4. You have **30 seconds** for each question. The big number and the green bar show the time left (the bar turns amber when it's getting low).
-5. Tap your answer. A right answer adds the money and takes you back to the choice screen. Questions never repeat within a game.
-6. A **wrong answer**, or **running out of time**, ends the game, but you **keep everything you've won**. You can also press **Take the money and stop** on the choice screen to finish early.
-7. A game is a maximum of **10 questions**, then it ends.
+5. Tap your answer. A right answer adds the money and takes you back to the choice screen. Questions don't repeat in a game (if a list ever runs out it is shuffled and used again).
+6. A **wrong answer**, or **running out of time**, costs **one life**. When the last life goes, the game ends and you **keep everything you've won**. There is no "take the money": the game is **endless** until the lives run out.
+7. **Every 10th question is a big hard one** (question 10, 20, 30 and so on). There's no choice for that one, it's always hard, and it's worth **£1,000** instead of £500.
 
 ### Lifelines
 
-Each lifeline can be used **once per game**. It costs money, which comes out of your winnings, so a lifeline is greyed out if you can't afford it yet (you can't use any at £0).
+Each lifeline can be used **once per game**, and they **never refill**, however long the game goes on. It costs money, which comes out of your winnings, so a lifeline is greyed out if you can't afford it yet (you can't use any at £0).
 
 | Lifeline | Cost | What it does |
 | --- | --- | --- |
@@ -39,13 +39,17 @@ Everything is in one `CONFIG` object at the very top of `game.js`:
 var CONFIG = {
   currency: "£",
   startMoney: 0,
-  maxQuestions: 10,
   secondsPerQuestion: 30,
   levels: [
     { key: "easy",   label: "Easy",   prize: 100, set: "easy" },
     { key: "medium", label: "Medium", prize: 250, set: "medium" },
     { key: "hard",   label: "Hard",   prize: 500, set: "hard" }
   ],
+  endless: {
+    lives: 3,        // a wrong answer or a timeout costs one
+    bigEvery: 10,    // every 10th question is a forced hard one...
+    bigPrize: 1000   // ...worth this much
+  },
   lifelines: {
     removeWrong: { label: "Remove a wrong answer", cost: 50 },
     stopClock:   { label: "Stop the clock",        cost: 50 },
@@ -59,26 +63,27 @@ var CONFIG = {
     knockOutLine: "Dec isn't sure, but it's definitely not these.",
     knockOutLineOne: "Dec isn't sure, but it's definitely not this."
   },
-  storageKey: "melsQuiz.bestWinnings",
+  storageKey: "melsQuiz.bestEndless",
   leaderboardUrl: "",   // the shared leaderboard; empty = switched off and hidden
   maxNameLength: 20,
-  nameStorageKey: "melsQuiz.playerName",
   sessionStorageKey: "melsQuiz.session"   // remembers who is signed in on this device
 };
 ```
 
-Change a number or the wording, save, and refresh the page. The `askDec.odds` values should add up to 1. Ask Dec costs £50 rather than £40 so every score stays a multiple of £25, which the shared leaderboard still checks. (If you change the prizes or lifeline costs a lot, her old best winnings will still be shown. To start the best-winnings record afresh, change `storageKey` to a new name.)
+Change a number or the wording, save, and refresh the page. The `askDec.odds` values should add up to 1. Ask Dec costs £50 rather than £40 so every score stays a multiple of £25, which the shared leaderboard still checks. **If you change the prizes, lives, `bigEvery`/`bigPrize` or lifeline costs, change the matching "game rules" numbers at the top of `leaderboard/src/endless.js` and re-deploy the Worker**, or the Worker will refuse scores it thinks are too high. (To start the on-device best-winnings record afresh, change `storageKey` to a new name.)
 
 ## Shared leaderboard (optional)
 
-When `leaderboardUrl` in `CONFIG` is filled in, players can add their name to a shared top 10:
+When `leaderboardUrl` in `CONFIG` is filled in, the game has shared leaderboards. They need a **profile** (see below), because every score belongs to a player:
 
-- After a game where they won more than £0, the end screen has a name box and an **Add me to the leaderboard** button. The top 10 is then shown with their entry highlighted.
-- The start screen has a **Leaderboard** button to look at the top 10 at any time.
-- If the leaderboard can't be reached, the game says so kindly and carries on working.
-- When `leaderboardUrl` is empty (`""`), all the leaderboard buttons are hidden and the game works exactly as before.
+- When a signed-in player's game ends, the score is saved automatically and the top 10 is shown with their row highlighted. If they haven't got a profile, the end screen offers to create one (or sign in) and then saves that game.
+- The start screen has a **Leaderboard** button with two tabs: **Top 10** (each player's best game) and **No lifelines** (best games where no lifeline was used).
+- Each row has a small badge showing the mix of questions in that game (**Mostly hard**, **Mostly easy** or **Mixed**), plus how many questions and lifelines were used.
+- Each saved game records: the money won, how many easy / medium / hard questions were answered and got right, and which lifelines were used. The Worker refuses numbers that don't add up (see `leaderboard/src/endless.js`).
+- If the leaderboard can't be reached, the game says so kindly and carries on working. When `leaderboardUrl` is empty (`""`), all the profile and leaderboard buttons are hidden and the game works exactly as before.
+- **Old scores:** the original 10-question game's top-10 stays safely in the old `scores` table (it is not deleted or shown in the new game). The Worker still answers the old `/scores` address, so the old version of the game keeps working until the new one goes live.
 
-The scores live in a small Cloudflare Worker with a D1 database, in the `leaderboard/` folder. See `leaderboard/README.md` for the exact steps to set it up. Only the name, score and date are stored, there's no swear filter, and the name is only ever shown as plain text.
+The scores live in a small Cloudflare Worker with a D1 database, in the `leaderboard/` folder. See `leaderboard/README.md` for the exact steps.
 
 ## Player profiles
 
@@ -102,6 +107,8 @@ The profile code is in `leaderboard/src/profiles.js`, with the tables in `leader
 | `game.js` | The game itself, with the `CONFIG` at the top |
 | `questions.js` | All the questions - **this is the one to edit** |
 | `tests/check-questions.js` | Checks the question file is tidy (needs Node.js) |
+| `tests/check-worker.mjs` | Checks the Worker's rules (no server needed) |
+| `tests/api-smoke.mjs` | Tries the Worker end to end against a local copy (see `leaderboard/README.md`) |
 | `leaderboard/` | The optional shared leaderboard (Cloudflare Worker + D1 database) |
 
 ## How to add questions

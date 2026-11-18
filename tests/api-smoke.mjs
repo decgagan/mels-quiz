@@ -81,7 +81,79 @@ async function profiles() {
   return token;
 }
 
+function run(over = {}) {
+  // 12 questions: 2 easy (1 right), 3 medium (2 right), 7 hard (6 right, incl. the 10th)... 3 wrong in total
+  return Object.assign({
+    runId: "run-" + Math.random().toString(36).slice(2, 12),
+    score: 0,
+    answered: { easy: 2, medium: 3, hard: 7 },
+    correct: { easy: 1, medium: 2, hard: 6 },
+    lifelines: [],
+  }, over);
+}
+
+async function endless() {
+  console.log("Endless runs and leaderboards");
+  const mk = async (n) => (await call("POST", "/profiles", { name: n + " " + tag, pin: "1111" })).data.token;
+  const a = await mk("Ann"), b = await mk("Bob"), c = await mk("Cat");
+
+  let r = await call("POST", "/runs", run({ score: 100 }));
+  ok(r.status === 401, "saving a run needs a sign-in");
+  // 1x100 + 2x250 + 6x500 + 500 bonus for the 10th question = 4100
+  r = await call("POST", "/runs", run({ score: 4100 }), a);
+  ok(r.status === 201 && r.data.saved && r.data.newBest, "valid run saves (score 4100, the most those answers could win)");
+  ok(r.data.profile.gamesPlayed === 1 && r.data.profile.totalCorrect === 9 && r.data.profile.bestEndless === 4100, "profile stats updated");
+  ok(r.data.rank === 1 && r.data.rankNoLifelines === 1, "rank 1 overall and with no lifelines");
+  r = await call("POST", "/runs", run({ score: 4125 }), a);
+  ok(r.status === 400, "score above what the answers could win is refused");
+  r = await call("POST", "/runs", run({ score: 4090 }), a);
+  ok(r.status === 400, "score not a multiple of 25 is refused");
+  r = await call("POST", "/runs", run({ score: 3000, correct: { easy: 1, medium: 2, hard: 5 } }), a);
+  ok(r.status === 400, "run that didn't end on the 3rd wrong answer is refused");
+  r = await call("POST", "/runs", run({ lifelines: ["x"] }), a);
+  ok(r.status === 400, "unknown lifeline is refused");
+  r = await call("POST", "/runs", run({ answered: { easy: 5, medium: 5, hard: 0 }, correct: { easy: 3, medium: 4, hard: 0 } }), a);
+  ok(r.status === 400, "10 questions with no hard one is refused (the 10th must be hard)");
+  const dup = run({ score: 100 });
+  r = await call("POST", "/runs", dup, b);
+  ok(r.status === 201, "second player saves a run (score 100)");
+  r = await call("POST", "/runs", dup, b);
+  ok(r.status === 200 && r.data.saved === false, "the same run sent again is not saved twice");
+  r = await call("GET", "/me", undefined, b);
+  ok(r.data.profile.gamesPlayed === 1, "games played still 1 after the retry");
+
+  // Cat: used Ask Dec, scored 3600 (4100 - 50 - rounded: 4050 is the cap with one lifeline)
+  r = await call("POST", "/runs", run({ score: 4050, lifelines: ["phoneFriend"] }), c);
+  ok(r.status === 201 && r.data.rank === 2 && r.data.rankNoLifelines === null, "lifeline run: rank 2 overall, no no-lifelines rank");
+  r = await call("POST", "/runs", run({ score: 4100, lifelines: ["phoneFriend"] }), c);
+  ok(r.status === 400, "lifeline cost is taken off the most a run could win");
+
+  r = await call("GET", "/leaderboard/endless?board=overall", undefined, c);
+  const mine = r.data.scores.filter((x) => x.name.endsWith(tag));
+  ok(r.status === 200 && mine.length === 3 && mine[0].name.startsWith("Ann") && mine[1].name.startsWith("Cat") && mine[2].name.startsWith("Bob"), "overall board orders Ann 4100, Cat 4050, Bob 100");
+  ok(mine[1].me === true && mine[0].me === false, "'me' flag marks the signed-in player's row");
+  ok(mine[1].lifelines.join() === "phoneFriend" && mine[0].answered.hard === 7, "rows carry lifelines used and answered counts");
+  r = await call("GET", "/leaderboard/endless?board=nolifelines");
+  const nl = r.data.scores.filter((x) => x.name.endsWith(tag));
+  ok(nl.length === 2 && nl.every((x) => x.lifelines.length === 0), "no-lifelines board leaves Cat out");
+  // a player's second, worse run doesn't add a second row
+  await call("POST", "/runs", run({ score: 50 }), a);
+  r = await call("GET", "/leaderboard/endless?board=overall");
+  ok(r.data.scores.filter((x) => x.name.startsWith("Ann " + tag)).length === 1, "one row per player (their best)");
+  r = await call("GET", "/me", undefined, a);
+  ok(r.data.profile.gamesPlayed === 2 && r.data.profile.bestEndless === 4100, "games played 2, best still 4100");
+
+  // old leaderboard untouched
+  r = await call("GET", "/scores");
+  ok(r.status === 200 && Array.isArray(r.data.scores), "legacy GET /scores still works");
+
+  for (const t of [a, b, c]) await call("POST", "/me/delete", {}, t);
+  r = await call("GET", "/leaderboard/endless?board=overall");
+  ok(!r.data.scores.some((x) => x.name.endsWith(tag)), "deleting profiles removes their scores");
+}
+
 const token = await profiles();
+await endless();
 await call("POST", "/me/delete", {}, token);
 console.log(failures ? `\n${failures} FAILED` : "\nAll good.");
 process.exit(failures ? 1 : 0);

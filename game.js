@@ -7,7 +7,6 @@
 var CONFIG = {
   currency: "£",
   startMoney: 0,          // money at the start of every game
-  maxQuestions: 10,       // a game ends after this many questions
   secondsPerQuestion: 30, // time allowed for each question
 
   // The three question types she can pick from. `prize` is what a right answer wins.
@@ -18,7 +17,18 @@ var CONFIG = {
     { key: "hard",   label: "Hard",   prize: 500, set: "hard" }
   ],
 
-  // Lifelines. Each can be used once per game and costs money from her winnings.
+  // ENDLESS MODE: the game goes on until all the lives are gone.
+  // A wrong answer or running out of time costs a life. Every `bigEvery`th question is a forced hard one,
+  // worth `bigPrize` instead of the usual hard prize. There is no "take the money" and no refills.
+  // Keep the prizes, lifeline costs, lives and bigEvery/bigPrize in step with the Worker
+  // (leaderboard/src/endless.js, "game rules") and keep every amount a multiple of £25.
+  endless: {
+    lives: 3,
+    bigEvery: 10,
+    bigPrize: 1000
+  },
+
+  // Lifelines. Each can be used once per game (they never refill) and costs money from her winnings.
   // Ask Dec is £50 (not £40) so every possible score stays a multiple of £25,
   // which the shared leaderboard still requires.
   lifelines: {
@@ -42,15 +52,15 @@ var CONFIG = {
     knockOutLineOne: "Dec isn't sure, but it's definitely not this."
   },
 
-  // The best winnings are remembered in the browser under this name.
-  storageKey: "melsQuiz.bestWinnings",
+  // The best winnings on this device are remembered in the browser under this name.
+  // (Endless mode is a different game from the old 10-question one, so its best starts afresh.)
+  storageKey: "melsQuiz.bestEndless",
 
   // SHARED LEADERBOARD. Paste the web address of the Cloudflare Worker here (see leaderboard/README.md),
   // for example "https://mels-quiz-leaderboard.your-name.workers.dev".
   // While this is empty ("") the leaderboard is switched off and hidden, and the game works as normal.
   leaderboardUrl: "https://mels-quiz-leaderboard.decgagan.workers.dev",
   maxNameLength: 20,             // longest name allowed (the Worker enforces this too)
-  nameStorageKey: "melsQuiz.playerName", // remembers the name she last typed, on this device only
 
   // PLAYER PROFILES (need the leaderboard Worker above). The device remembers who is signed in under this name.
   sessionStorageKey: "melsQuiz.session"
@@ -63,7 +73,8 @@ var CONFIG = {
   var screens = { start: $("screen-start"), auth: $("screen-auth"), profile: $("screen-profile"), leaderboard: $("screen-leaderboard"), choose: $("screen-choose"), question: $("screen-question"), end: $("screen-end") };
 
   // ---- game state
-  var money, asked, pools, usedLifelines, current, currentLevel;
+  var money, asked, pools, usedLifelines, current, currentLevel, currentPrize, currentBig, lastQuestion;
+  var lives, answeredBy, correctBy, runId, lastRun;
   var answered, endReason;
   // timer state
   var timerId = null, remainingMs = 0, lastTick = 0, running = false, clockStopped = false, askDecBusy = false;
@@ -116,57 +127,103 @@ var CONFIG = {
     $("btn-start").focus();
   }
 
+  function makeRunId() {
+    try {
+      var bytes = new Uint8Array(12);
+      window.crypto.getRandomValues(bytes);
+      return Array.prototype.map.call(bytes, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+    } catch (e) {
+      return String(Date.now()) + Math.floor(Math.random() * 1e9);
+    }
+  }
+
   function newGame() {
     money = CONFIG.startMoney;
     asked = 0;
+    lives = CONFIG.endless.lives;
     usedLifelines = {};
     endReason = "";
+    answeredBy = { easy: 0, medium: 0, hard: 0 };
+    correctBy = { easy: 0, medium: 0, hard: 0 };
+    runId = makeRunId();
+    lastRun = null;
     pools = {};
-    CONFIG.levels.forEach(function (lv) { pools[lv.key] = shuffle(QUESTIONS[lv.set]); }); // no repeats in a game
+    lastQuestion = null;
     showChoose();
+  }
+
+  // The next question for a level. Nothing repeats in a run until that level's whole list has been used,
+  // then the list is reshuffled.
+  function drawQuestion(level) {
+    var list = pools[level.key];
+    if (!list || !list.length) {
+      list = shuffle(QUESTIONS[level.set]);
+      if (list.length > 1 && list[list.length - 1] === lastQuestion) { var t = list[0]; list[0] = list[list.length - 1]; list[list.length - 1] = t; }
+      pools[level.key] = list;
+    }
+    lastQuestion = list.pop();
+    return lastQuestion;
+  }
+
+  function isBigQuestion(n) { return n % CONFIG.endless.bigEvery === 0; }
+
+  function renderHearts(el) {
+    var html = "";
+    for (var i = 0; i < CONFIG.endless.lives; i++) html += '<span class="heart' + (i < lives ? "" : " lost") + '">♥</span>';
+    el.innerHTML = html;
+    el.setAttribute("aria-label", lives + (lives === 1 ? " life" : " lives") + " left");
   }
 
   // ---------------------------------------------------------------- choose
   function showChoose() {
     stopTimer();
-    $("choose-progress").textContent = "Question " + (asked + 1) + " of " + CONFIG.maxQuestions;
+    var n = asked + 1;
+    var big = isBigQuestion(n);
+    var every = CONFIG.endless.bigEvery;
+    $("choose-progress").textContent = "Question " + n;
+    renderHearts($("choose-hearts"));
     $("choose-money").textContent = fmt(money);
+    $("choose-title").textContent = big ? "Question " + n + " is the big one!" : "Pick your question";
+    $("choose-note").textContent = big
+      ? "Every " + every + "th question is a hard one, worth double. Good luck!"
+      : "Question " + (n + every - (n % every)) + " will be a big hard one for " + fmt(CONFIG.endless.bigPrize) + ".";
     var box = $("choices");
     box.innerHTML = "";
     CONFIG.levels.forEach(function (lv) {
+      if (big && lv.key !== "hard") return;
+      var prize = big ? CONFIG.endless.bigPrize : lv.prize;
       var b = document.createElement("button");
       b.type = "button";
-      b.className = "btn choice choice-" + lv.key;
+      b.className = "btn choice choice-" + lv.key + (big ? " choice-big" : "");
       b.innerHTML = '<span class="choice-name"></span><span class="choice-prize"></span>';
-      b.querySelector(".choice-name").textContent = lv.label;
-      b.querySelector(".choice-prize").textContent = "Win " + fmt(lv.prize);
-      b.addEventListener("click", function () { startQuestion(lv); });
+      b.querySelector(".choice-name").textContent = big ? "Big hard question" : lv.label;
+      b.querySelector(".choice-prize").textContent = "Win " + fmt(prize);
+      b.addEventListener("click", function () { startQuestion(lv, prize, big); });
       box.appendChild(b);
     });
 
     var left = Object.keys(CONFIG.lifelines).filter(function (k) { return !usedLifelines[k]; })
       .map(function (k) { return CONFIG.lifelines[k].label + " (" + fmt(CONFIG.lifelines[k].cost) + ")"; });
-    $("lifelines-left").textContent = left.length ? "Lifelines left: " + left.join(", ") : "No lifelines left.";
-
-    var take = $("btn-take");
-    take.hidden = (money <= 0);
-    take.textContent = "Take the money and stop (" + fmt(money) + ")";
+    $("lifelines-left").textContent = left.length ? "Lifelines left, one use each: " + left.join(", ") : "No lifelines left.";
     show("choose");
     $("choose-title").focus();
   }
 
   // ---------------------------------------------------------------- question
-  function startQuestion(level) {
+  function startQuestion(level, prize, big) {
     currentLevel = level;
-    current = pools[level.key].pop();
+    currentPrize = prize;
+    currentBig = !!big;
+    current = drawQuestion(level);
     asked++;
     answered = false;
     clockStopped = false;
     askDecBusy = false;
 
-    $("q-progress").textContent = "Question " + asked + " of " + CONFIG.maxQuestions;
-    $("q-level").textContent = level.label + " question for " + fmt(level.prize);
-    $("q-level").className = "level-tag level-" + level.key;
+    $("q-progress").textContent = "Question " + asked;
+    renderHearts($("q-hearts"));
+    $("q-level").textContent = (big ? "Big hard question" : level.label + " question") + " for " + fmt(prize);
+    $("q-level").className = "level-tag level-" + level.key + (big ? " level-big" : "");
     $("question-text").textContent = current.q;
     $("feedback").hidden = true;
     $("feedback").textContent = "";
@@ -416,6 +473,17 @@ var CONFIG = {
     });
   }
 
+  // Wrong answers and timeouts both cost a life.
+  function loseLife() {
+    lives--;
+    renderHearts($("q-hearts"));
+    if (lives <= 0) endReason = "lives";
+  }
+  function lifeLine() {
+    if (lives <= 0) return " That was your last life, so the game is over. You keep your " + fmt(money) + ".";
+    return " You lose a life. " + lives + (lives === 1 ? " life" : " lives") + " left.";
+  }
+
   function choose(button, text) {
     if (answered || askDecBusy) return;
     answered = true;
@@ -423,83 +491,83 @@ var CONFIG = {
     var right = (text === current.answer);
     var fb = $("feedback");
     revealAnswer(button);
+    answeredBy[currentLevel.key]++;
 
     if (right) {
-      money += currentLevel.prize;
-      fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentLevel.prize) + "!";
+      correctBy[currentLevel.key]++;
+      money += currentPrize;
+      fb.textContent = "✔ " + pick(CHEERS) + " You win " + fmt(currentPrize) + "!";
       fb.className = "feedback good";
     } else {
-      endReason = "wrong";
-      fb.textContent = "✘ " + pick(CONSOLATIONS) + " The right answer was: " + current.answer + ". The game is over, but you keep your " + fmt(money) + ".";
+      loseLife();
+      fb.textContent = "✘ " + pick(CONSOLATIONS) + " The right answer was: " + current.answer + "." + lifeLine();
       fb.className = "feedback bad";
     }
-    afterAnswer(right);
+    afterAnswer();
   }
 
   function timeUp() {
     if (answered) return;
     answered = true;
     stopTimer();
-    endReason = "time";
     revealAnswer(null);
+    answeredBy[currentLevel.key]++;
+    loseLife();
     var fb = $("feedback");
-    fb.textContent = "⏰ Time's up! The right answer was: " + current.answer + ". The game is over, but you keep your " + fmt(money) + ".";
+    fb.textContent = "⏰ Time's up! The right answer was: " + current.answer + "." + lifeLine();
     fb.className = "feedback bad";
-    afterAnswer(false);
+    afterAnswer();
   }
 
-  function afterAnswer(right) {
+  function afterAnswer() {
     $("feedback").hidden = false;
     updateMoney();
     updateLifelines();
     var next = $("btn-next");
-    if (!right) next.textContent = "See what I won";
-    else if (asked >= CONFIG.maxQuestions) next.textContent = "See what I won";
-    else next.textContent = "Choose my next question";
+    next.textContent = endReason ? "See what I won" : "Choose my next question";
     next.hidden = false;
     next.focus();
   }
 
   function next() {
     if (endReason) { finish(); return; }
-    if (asked >= CONFIG.maxQuestions) { endReason = "complete"; finish(); return; }
     showChoose();
   }
 
   // ---------------------------------------------------------------- end
   function endMessage(won) {
-    if (won >= 2000) return "Absolutely fantastic! You're a quiz superstar!";
-    if (won >= 1000) return "Brilliant playing! That's a cracking amount of money.";
-    if (won >= 500) return "Well done! That's a really good win.";
+    if (won >= 10000) return "Absolutely fantastic! You're a quiz superstar!";
+    if (won >= 5000) return "Brilliant playing! That's a cracking amount of money.";
+    if (won >= 2000) return "Well done! That's a really good win.";
     if (won > 0) return "Nice one! Have another go and see if you can win even more.";
     return "Thanks for playing! Every game teaches you something new, so have another go.";
   }
 
-  var REASONS = {
-    wrong: "That answer wasn't right, so the game is over.",
-    time: "The time ran out, so the game is over.",
-    take: "You took the money and stopped.",
-    complete: "You answered all " + CONFIG.maxQuestions + " questions!"
-  };
+  function sum(o) { return o.easy + o.medium + o.hard; }
 
   function finish() {
     stopTimer();
     var best = loadBest();
     var newBest = (best === null || money > best) && money > 0;
     if (newBest) { saveBest(money); best = money; }
-    $("end-reason").textContent = REASONS[endReason] || "";
+    var total = sum(answeredBy), right = sum(correctBy);
+    lastRun = {
+      runId: runId,
+      score: money,
+      answered: { easy: answeredBy.easy, medium: answeredBy.medium, hard: answeredBy.hard },
+      correct: { easy: correctBy.easy, medium: correctBy.medium, hard: correctBy.hard },
+      lifelines: Object.keys(CONFIG.lifelines).filter(function (k) { return usedLifelines[k]; }),
+      saved: false, saving: false, result: null
+    };
+    $("end-reason").textContent = "You ran out of lives, so the game is over.";
     $("end-won").textContent = "You won " + fmt(money) + "!";
+    $("end-summary").textContent = "You answered " + total + (total === 1 ? " question" : " questions") + " and got " + right + " right.";
     $("end-message").textContent = endMessage(money);
-    $("end-best").textContent = newBest ? "🎉 That's your best winnings so far!" :
-      (best === null ? "" : "Your best winnings: " + fmt(best));
-    setupEndLeaderboard();
+    $("end-best").textContent = newBest ? "🎉 That's your best winnings on this device!" :
+      (best === null ? "" : "Your best winnings on this device: " + fmt(best));
     show("end");
+    renderEndSave();
     $("end-title").focus();
-  }
-
-  function takeMoney() {
-    endReason = "take";
-    finish();
   }
 
   // ---------------------------------------------------------------- shared leaderboard
@@ -509,14 +577,10 @@ var CONFIG = {
     if (!u) return "";
     return u.replace(/\/+$/, "").replace(/\/scores$/, "");
   }
-  function lbUrl() { var b = lbBase(); return b ? b + "/scores" : ""; }
   var lbOn = !!lbBase();
-  var submitted = false, submitting = false;
-
+  
   // Talks to the Worker. Resolves with the parsed JSON, or rejects with an Error that has
   // .status (HTTP status, or 0 for a network problem) and .serverMessage (the Worker's own words).
-  function lbRequest(method, body) { return apiRequest(method, "/scores", body); }
-
   // path is like "/me". Signed-in players send their token automatically.
   function apiRequest(method, path, body, noAuth) {
     return new Promise(function (resolve, reject) {
@@ -544,19 +608,26 @@ var CONFIG = {
     });
   }
 
-  function shortDate(iso) {
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  // How a row's mix of questions is described.
+  function mixBadge(answered) {
+    var total = answered ? answered.easy + answered.medium + answered.hard : 0;
+    if (!total) return null;
+    if (answered.hard / total >= 0.5) return { text: "Mostly hard", cls: "badge-hard" };
+    if (answered.easy / total >= 0.5) return { text: "Mostly easy", cls: "badge-easy" };
+    return { text: "Mixed", cls: "badge-mixed" };
+  }
+
+  function lifelineNames(keys) {
+    return keys.map(function (k) { return CONFIG.lifelines[k] ? CONFIG.lifelines[k].label : k; });
   }
 
   // Player names are untrusted: they are only ever put on the page with textContent, never innerHTML.
-  function renderBoard(box, scores, highlightId) {
+  function renderBoard(box, scores, kind) {
     box.innerHTML = "";
     if (!scores || !scores.length) {
       var empty = document.createElement("p");
       empty.className = "small-note";
-      empty.textContent = "No scores yet. Be the first on the board!";
+      empty.textContent = kind === "weekly" ? "No scores yet this week. Be the first on the board!" : "No scores yet. Be the first on the board!";
       box.appendChild(empty);
       return;
     }
@@ -564,7 +635,7 @@ var CONFIG = {
     list.className = "board";
     scores.forEach(function (row, i) {
       var li = document.createElement("li");
-      li.className = "board-row" + (highlightId !== undefined && row.id === highlightId ? " me" : "");
+      li.className = "board-row" + (row.me ? " me" : "");
       var rank = document.createElement("span");
       rank.className = "board-rank";
       rank.textContent = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : String(i + 1);
@@ -575,14 +646,31 @@ var CONFIG = {
       nm.className = "board-name";
       nm.textContent = row.name;
       who.appendChild(nm);
-      var when = shortDate(row.date);
-      if (when) {
-        var dt = document.createElement("span");
-        dt.className = "board-date";
-        dt.textContent = when;
-        who.appendChild(dt);
+      var meta = document.createElement("span");
+      meta.className = "board-meta";
+      if (kind === "endless") {
+        var badge = mixBadge(row.answered);
+        if (badge) {
+          var pill = document.createElement("span");
+          pill.className = "badge " + badge.cls;
+          pill.textContent = badge.text;
+          meta.appendChild(pill);
+        }
+        var qn = row.answered ? row.answered.easy + row.answered.medium + row.answered.hard : 0;
+        var tail = document.createElement("span");
+        tail.className = "board-detail";
+        var ll = row.lifelines || [];
+        tail.textContent = qn + " questions · " + (ll.length ? ll.length + (ll.length === 1 ? " lifeline" : " lifelines") : "no lifelines");
+        tail.title = ll.length ? "Used: " + lifelineNames(ll).join(", ") : "No lifelines used";
+        meta.appendChild(tail);
+      } else if (row.noLifelines) {
+        var nl = document.createElement("span");
+        nl.className = "board-detail";
+        nl.textContent = "No lifelines";
+        meta.appendChild(nl);
       }
-      if (li.className.indexOf("me") !== -1) {
+      if (meta.childNodes.length) who.appendChild(meta);
+      if (row.me) {
         var tag = document.createElement("span");
         tag.className = "board-you";
         tag.textContent = "That's you!";
@@ -597,14 +685,15 @@ var CONFIG = {
     box.appendChild(list);
   }
 
-  function loadBoard(box, highlightId) {
+  // path is like "/leaderboard/endless?board=overall"; kind is "endless" or "weekly"
+  function loadBoard(box, path, kind) {
     box.innerHTML = "";
     var wait = document.createElement("p");
     wait.className = "small-note";
     wait.textContent = "Loading the leaderboard...";
     box.appendChild(wait);
-    lbRequest("GET").then(function (data) {
-      renderBoard(box, data.scores, highlightId);
+    apiRequest("GET", path).then(function (data) {
+      renderBoard(box, data.scores, kind);
     }).catch(function () {
       box.innerHTML = "";
       var msg = document.createElement("p");
@@ -614,96 +703,113 @@ var CONFIG = {
       retry.type = "button";
       retry.className = "btn btn-secondary";
       retry.textContent = "Try again";
-      retry.addEventListener("click", function () { loadBoard(box, highlightId); });
+      retry.addEventListener("click", function () { loadBoard(box, path, kind); });
       box.appendChild(msg);
       box.appendChild(retry);
     });
   }
 
+  // ---- the Leaderboard screen from the start page: Top 10 / No lifelines
+  var lbTab = "overall";
   function showLeaderboardScreen() {
+    lbTab = "overall";
+    $("leaderboard-title").textContent = "🏆 Top 10 leaderboard";
+    $("lb-tabs").hidden = false;
+    renderLbTabs();
     show("leaderboard");
-    loadBoard($("board-main"));
+    loadEndlessBoard();
     $("leaderboard-title").focus();
   }
-
-  function loadName() {
-    try { return window.localStorage.getItem(CONFIG.nameStorageKey) || ""; } catch (e) { return ""; }
+  function renderLbTabs() {
+    $("tab-lb-overall").setAttribute("aria-selected", lbTab === "overall" ? "true" : "false");
+    $("tab-lb-nolifelines").setAttribute("aria-selected", lbTab === "nolifelines" ? "true" : "false");
+    $("lb-sub").textContent = lbTab === "overall"
+      ? "Each player's best game. How much money did you win before you ran out of lives?"
+      : "Only games where no lifeline was used.";
   }
-  function saveName(n) {
-    try { window.localStorage.setItem(CONFIG.nameStorageKey, n); } catch (e) { /* ignore */ }
+  function loadEndlessBoard() {
+    loadBoard($("board-main"), "/leaderboard/endless?board=" + lbTab, "endless");
   }
 
-  function setupEndLeaderboard() {
+  // ---- saving a finished game (the end screen)
+  var savingTimer = null;
+  function endStatus(text, cls) {
+    var el = $("end-save-msg");
+    el.hidden = !text;
+    el.textContent = text || "";
+    el.className = "board-result" + (cls ? " " + cls : "");
+  }
+
+  // Works out what the end screen should show: saving, saved, a problem, or an invitation to sign in.
+  function renderEndSave() {
+    var run = lastRun;
     var wrap = $("end-leaderboard");
-    submitted = false; submitting = false;
-    $("board-end").innerHTML = "";
-    $("board-result").hidden = true;
-    $("board-result").textContent = "";
-    $("submit-msg").textContent = "";
-    if (!lbOn) { wrap.hidden = true; return; }
+    if (!lbOn || !run) { wrap.hidden = true; return; }
     wrap.hidden = false;
-    var canSubmit = money > 0;
-    $("submit-form").hidden = !canSubmit;
-    $("btn-submit").disabled = false;
-    $("btn-submit").textContent = "Add me to the leaderboard";
-    $("btn-show-board").hidden = false;
-    $("btn-show-board").textContent = canSubmit ? "Just show me the leaderboard" : "See the leaderboard";
-    // A signed-in player's name comes from their profile, so it can't be changed here.
-    $("name-input").readOnly = !!session;
-    if (canSubmit) $("name-input").value = session ? session.name : loadName();
+    $("end-guest").hidden = true;
+    $("btn-end-retry").hidden = true;
+    $("btn-end-boards").hidden = true;
+    $("board-end").innerHTML = "";
+    endStatus("");
+    if (!session) {
+      $("end-guest").hidden = false;
+      $("end-guest-text").textContent = run.score > 0
+        ? "Want your " + fmt(run.score) + " on the leaderboard? Make a profile (or sign in) and your score is saved."
+        : "Make a profile (or sign in) to save your games and join the leaderboards.";
+      return;
+    }
+    if (run.saved) { showSavedResult(run.result); return; }
+    saveRun();
   }
 
-  function cleanName(raw) {
-    return String(raw).replace(/^\s+|\s+$/g, "");
+  function showSavedResult(data) {
+    var msg;
+    if (data.rank && data.rank <= data.scores.length) msg = "🎉 " + (data.newBest ? "New personal best! " : "") + "You're number " + data.rank + " on the leaderboard!";
+    else if (data.rank) msg = "Saved! You're number " + data.rank + " on the leaderboard. Keep going to reach the top 10.";
+    else msg = "Saved to your profile.";
+    if (data.rankNoLifelines && lastRun.lifelines.length === 0) msg += " And number " + data.rankNoLifelines + " with no lifelines.";
+    endStatus(msg, "");
+    renderBoard($("board-end"), data.scores, "endless");
+    $("btn-end-boards").hidden = false;
   }
 
-  function submitScore(ev) {
-    ev.preventDefault();
-    if (!lbOn || submitted || submitting) return;
-    var msg = $("submit-msg");
-    var name = cleanName($("name-input").value);
-    var len = Array.from(name).length;
-    if (len < 1) { msg.textContent = "Please type your name first."; $("name-input").focus(); return; }
-    if (len > CONFIG.maxNameLength) { msg.textContent = "Names can be up to " + CONFIG.maxNameLength + " letters long. Could you shorten it?"; $("name-input").focus(); return; }
-    submitting = true;
-    var btn = $("btn-submit");
-    btn.disabled = true;
-    btn.textContent = "Adding you...";
-    msg.textContent = "";
-    lbRequest("POST", { name: name, score: money }).then(function (data) {
-      submitting = false; submitted = true;
-      saveName(name);
-      $("submit-form").hidden = true;
-      $("btn-show-board").hidden = true;
-      var entry = data.entry || {};
-      var result = $("board-result");
-      result.textContent = (entry.rank && entry.rank <= data.scores.length)
-        ? "🎉 Well done, " + name + "! You're number " + entry.rank + " on the leaderboard."
-        : "Thanks, " + name + "! You scored " + fmt(money) + ", but not quite enough for the top 10 this time. Have another go!";
-      result.hidden = false;
-      renderBoard($("board-end"), data.scores, entry.id);
-      result.scrollIntoView({ block: "nearest" });
+  function saveRun() {
+    var run = lastRun;
+    if (!run || run.saved || run.saving) return;
+    run.saving = true;
+    endStatus("Saving your score...", "plain");
+    $("btn-end-retry").hidden = true;
+    apiRequest("POST", "/runs", { runId: run.runId, score: run.score, answered: run.answered, correct: run.correct, lifelines: run.lifelines }).then(function (data) {
+      run.saving = false; run.saved = true; run.result = data;
+      me = data.profile;
+      if (lastRun === run && !screens.end.hidden) showSavedResult(data);
     }).catch(function (err) {
-      submitting = false;
-      btn.disabled = false;
-      btn.textContent = "Add me to the leaderboard";
-      if (err.status === 429 || err.status === 400) msg.textContent = err.serverMessage || "That didn't work. Please check your name and try again.";
-      else msg.textContent = "Couldn't add you to the leaderboard just now. Please check your connection and try again.";
+      run.saving = false;
+      if (lastRun !== run || screens.end.hidden) return;
+      if (!session) { renderEndSave(); return; }   // our sign-in stopped working: offer to sign in again
+      endStatus(err.serverMessage || "Couldn't save your score just now. Please check your connection and try again.", "bad");
+      $("btn-end-retry").hidden = false;
     });
+  }
+
+  function backToEnd() {
+    show("end");
+    renderEndSave();
+    $("end-title").focus();
   }
 
   function setupLeaderboardUi() {
     if (!lbOn) return;
     $("btn-leaderboard").hidden = false;
     $("footer-note").textContent = "No email needed and no tracking. Your best winnings are saved on this device. If you make a profile, your name, PIN (scrambled) and scores are kept on the game's server, and your name and scores are shown to everyone who plays.";
-    $("name-input").maxLength = CONFIG.maxNameLength;
     $("btn-leaderboard").addEventListener("click", showLeaderboardScreen);
-    $("btn-board-back").addEventListener("click", showStart);
-    $("submit-form").addEventListener("submit", submitScore);
-    $("btn-show-board").addEventListener("click", function () {
-      $("btn-show-board").hidden = true;
-      loadBoard($("board-end"));
-    });
+    $("btn-board-back").addEventListener("click", function () { showStart(); });
+    $("tab-lb-overall").addEventListener("click", function () { lbTab = "overall"; renderLbTabs(); loadEndlessBoard(); });
+    $("tab-lb-nolifelines").addEventListener("click", function () { lbTab = "nolifelines"; renderLbTabs(); loadEndlessBoard(); });
+    $("btn-end-retry").addEventListener("click", saveRun);
+    $("btn-end-boards").addEventListener("click", showLeaderboardScreen);
+    $("btn-end-create").addEventListener("click", function () { showAuth("create", backToEnd, backToEnd); });
+    $("btn-end-signin").addEventListener("click", function () { showAuth("signin", backToEnd, backToEnd); });
   }
 
   // ---------------------------------------------------------------- player profiles
@@ -898,7 +1004,6 @@ var CONFIG = {
 
   // ---------------------------------------------------------------- wire up
   $("btn-start").addEventListener("click", newGame);
-  $("btn-take").addEventListener("click", takeMoney);
   $("btn-next").addEventListener("click", next);
   $("btn-again").addEventListener("click", newGame);
   $("ll-removeWrong").addEventListener("click", useRemoveWrong);

@@ -283,20 +283,6 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 
 /* ---------- shared leaderboard ---------- */
 .end-leaderboard { margin-top: 8px; }
-.submit-form { margin-bottom: 8px; padding: 16px; background: #fff8ec; border: 3px solid var(--option-border); border-radius: 14px; }
-.submit-form label { display: block; font-weight: bold; font-size: 1.15rem; margin-bottom: 8px; }
-.submit-form input {
-  width: 100%;
-  min-height: 60px;
-  padding: 10px 14px;
-  font: inherit;
-  font-size: 1.3rem;
-  color: var(--text);
-  background: #fff;
-  border: 3px solid var(--option-border);
-  border-radius: 14px;
-}
-.submit-form input:focus-visible { outline: 4px solid var(--focus); outline-offset: 2px; }
 .form-msg { min-height: 1.4em; margin: 8px 0 0; color: var(--bad); font-weight: bold; }
 .form-msg:empty { min-height: 0; margin: 0; }
 
@@ -320,7 +306,6 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .board-rank { font-size: 1.4rem; font-weight: bold; text-align: center; color: var(--muted); }
 .board-who { display: flex; flex-direction: column; min-width: 0; }
 .board-name { font-weight: bold; font-size: 1.2rem; overflow-wrap: anywhere; }
-.board-date { font-size: 0.8rem; color: var(--muted); }
 .board-you { font-size: 0.85rem; font-weight: bold; color: #7a4d00; }
 .board-score { font-weight: bold; font-size: 1.25rem; color: var(--good); white-space: nowrap; }
 
@@ -384,3 +369,26 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .btn-danger-outline { background: #fff; color: var(--bad); border: 3px solid var(--bad); margin-top: 14px; }
 .danger-card { margin-top: 14px; background: var(--bad-bg); border-color: var(--bad); }
 .danger-card p { margin: 0 0 8px; }
+
+/* ---------- endless mode: lives and the big question ---------- */
+.mb-left { display: flex; flex-direction: column; gap: 2px; }
+.hearts { font-size: 1.6rem; line-height: 1; letter-spacing: 3px; }
+.heart { color: #d4202c; }
+.heart.lost { color: #cfc3b3; }
+.hearts-inline { color: #d4202c; letter-spacing: 2px; }
+.choose-note { margin: -6px 0 14px; }
+.choice-big { min-height: 96px; border-color: #d9a200; box-shadow: 0 0 0 4px rgba(217, 162, 0, 0.35); }
+.level-big { background: linear-gradient(90deg, var(--hard), #b07a00); }
+
+/* ---------- leaderboard tabs, badges, saving ---------- */
+.lb-sub { margin: 0 0 6px; }
+.board-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 2px; }
+.badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.8rem; font-weight: bold; color: #fff; }
+.badge-hard { background: var(--hard); }
+.badge-easy { background: var(--easy); }
+.badge-mixed { background: var(--medium); }
+.board-detail { font-size: 0.8rem; color: var(--muted); }
+.board-result.plain { background: #e8f1ff; color: var(--medium-dark); border-color: var(--medium); }
+.board-result.bad { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); }
+.guest-text { margin: 0; font-size: 1.1rem; text-align: center; }
+#end-guest .btn-row .btn { margin-top: 14px; font-size: 1.05rem; }

@@ -17,8 +17,9 @@
       <p class="lead">Win as much money as you can! Before each question, pick Easy, Medium or Hard. The harder the question, the bigger the prize.</p>
       <ul class="rules">
         <li>You have <strong id="rule-seconds">30</strong> seconds for each question.</li>
-        <li>Get it wrong, or run out of time, and the game ends, but you keep what you've won.</li>
-        <li>Use a lifeline if you're stuck. Each one costs a little money.</li>
+        <li>You have <strong>3 lives</strong> <span class="hearts-inline">♥♥♥</span>. A wrong answer, or running out of time, costs a life. The game goes on until they're all gone, and you keep what you've won.</li>
+        <li>Every 10th question is a big hard one, worth double.</li>
+        <li>Lifelines cost a little money, and you can use each one once per game.</li>
       </ul>
       <p id="start-flash" class="flash" role="status" aria-live="polite" hidden></p>
 
@@ -94,6 +95,11 @@
     <!-- Leaderboard (only used when CONFIG.leaderboardUrl is set) -->
     <section id="screen-leaderboard" class="screen" hidden>
       <h2 id="leaderboard-title" tabindex="-1" class="center">🏆 Top 10 leaderboard</h2>
+      <div id="lb-tabs" class="tabs" role="tablist" aria-label="Which leaderboard">
+        <button id="tab-lb-overall" class="tab" type="button" role="tab">Top 10</button>
+        <button id="tab-lb-nolifelines" class="tab" type="button" role="tab">No lifelines</button>
+      </div>
+      <p id="lb-sub" class="small-note lb-sub"></p>
       <div id="board-main" class="board-wrap" aria-live="polite"></div>
       <button id="btn-board-back" class="btn btn-primary" type="button">Back</button>
     </section>
@@ -101,19 +107,25 @@
     <!-- Choose a question -->
     <section id="screen-choose" class="screen" hidden>
       <div class="money-bar">
-        <span id="choose-progress">Question 1 of 10</span>
+        <div class="mb-left">
+          <span id="choose-progress">Question 1</span>
+          <span id="choose-hearts" class="hearts" role="img"></span>
+        </div>
         <span class="money">You have <strong id="choose-money">£0</strong></span>
       </div>
       <h2 id="choose-title" tabindex="-1">Pick your question</h2>
+      <p id="choose-note" class="small-note choose-note"></p>
       <div id="choices" class="choices"></div>
       <p id="lifelines-left" class="small-note"></p>
-      <button id="btn-take" class="btn btn-secondary" type="button">Take the money</button>
     </section>
 
     <!-- Question screen -->
     <section id="screen-question" class="screen" hidden>
       <div class="money-bar">
-        <span id="q-progress">Question 1 of 10</span>
+        <div class="mb-left">
+          <span id="q-progress">Question 1</span>
+          <span id="q-hearts" class="hearts" role="img"></span>
+        </div>
         <span class="money">You have <strong id="q-money">£0</strong></span>
       </div>
       <p id="q-level" class="level-tag"></p>
@@ -149,20 +161,23 @@
       <h2 id="end-title" tabindex="-1" class="center">Game over</h2>
       <p id="end-reason" class="small-note center"></p>
       <p id="end-won" class="big-score"></p>
+      <p id="end-summary" class="small-note center"></p>
       <p id="end-message" class="lead"></p>
       <p id="end-best" class="best"></p>
 
-      <!-- Shared leaderboard (hidden unless CONFIG.leaderboardUrl is set) -->
+      <!-- Saving the score (hidden unless CONFIG.leaderboardUrl is set) -->
       <div id="end-leaderboard" class="end-leaderboard" hidden>
-        <form id="submit-form" class="submit-form" novalidate hidden>
-          <label for="name-input">Your name for the leaderboard</label>
-          <input id="name-input" type="text" maxlength="20" autocomplete="nickname" autocapitalize="words" spellcheck="false" placeholder="Type your name">
-          <p id="submit-msg" class="form-msg" role="status" aria-live="polite"></p>
-          <button id="btn-submit" class="btn btn-primary" type="submit">Add me to the leaderboard</button>
-        </form>
-        <button id="btn-show-board" class="btn btn-secondary" type="button" hidden>See the leaderboard</button>
-        <p id="board-result" class="board-result" role="status" aria-live="polite" hidden></p>
+        <p id="end-save-msg" class="board-result" role="status" aria-live="polite" hidden></p>
+        <button id="btn-end-retry" class="btn btn-secondary" type="button" hidden>Try saving again</button>
+        <div id="end-guest" class="form-card" hidden>
+          <p id="end-guest-text" class="guest-text"></p>
+          <div class="btn-row">
+            <button id="btn-end-create" class="btn btn-primary btn-half" type="button">Create my profile</button>
+            <button id="btn-end-signin" class="btn btn-secondary btn-half" type="button">Sign in</button>
+          </div>
+        </div>
         <div id="board-end" class="board-wrap" aria-live="polite"></div>
+        <button id="btn-end-boards" class="btn btn-secondary" type="button" hidden>🏆 See all the leaderboards</button>
       </div>
 
       <button id="btn-again" class="btn btn-primary" type="button">Play again</button>
