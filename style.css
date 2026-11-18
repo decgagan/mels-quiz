@@ -82,15 +82,19 @@ h2:focus { outline: none; }
   border-radius: 14px;
   cursor: pointer;
   text-align: center;
+  touch-action: manipulation;              /* a quick second tap doesn't zoom the page */
+  -webkit-tap-highlight-color: transparent;
 }
+.btn:active:not(:disabled) { transform: translateY(2px); }
 
 .btn-primary {
   background: var(--primary);
   color: #fff;
   border: 3px solid var(--primary-dark);
   margin-top: 16px;
+  box-shadow: 0 4px 0 rgba(90, 30, 5, 0.25);
 }
-.btn-primary:hover { background: var(--primary-dark); }
+.btn-primary:active:not(:disabled) { box-shadow: 0 2px 0 rgba(90, 30, 5, 0.25); }
 
 .options { display: grid; gap: 12px; }
 
@@ -116,8 +120,7 @@ h2:focus { outline: none; }
   font-weight: bold;
   font-size: 1rem;
 }
-.option-text { flex: 1; }
-.option:hover:not(:disabled) { background: #ffe9c4; }
+.option-text { flex: 1; overflow-wrap: anywhere; }
 .option:disabled { cursor: default; }
 .option.suggested {
   background: #fff1b8;
@@ -184,7 +187,6 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
   border: 3px solid var(--primary);
   margin-top: 14px;
 }
-.btn-secondary:hover { background: #ffe9c4; }
 
 .choices { display: grid; gap: 14px; }
 .choice {
@@ -195,15 +197,14 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
   min-height: 84px;
   color: #fff;
   border: 3px solid transparent;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
 }
+.choice:active:not(:disabled) { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18); }
 .choice-name { font-size: 1.5rem; }
 .choice-prize { font-size: 1.5rem; }
 .choice-easy { background: var(--easy); border-color: var(--easy-dark); }
-.choice-easy:hover { background: var(--easy-dark); }
 .choice-medium { background: var(--medium); border-color: var(--medium-dark); }
-.choice-medium:hover { background: var(--medium-dark); }
 .choice-hard { background: var(--hard); border-color: var(--hard-dark); }
-.choice-hard:hover { background: var(--hard-dark); }
 
 .level-tag {
   display: inline-block;
@@ -218,17 +219,22 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .level-medium { background: var(--medium); }
 .level-hard { background: var(--hard); }
 
-.timer { margin-top: 10px; }
+/* The level pill and the seconds share a row when there's room (laptops), and stack on a phone. */
+.q-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; margin-top: 10px; }
+.q-head .level-tag { margin: 0; }
 .timer-top { display: flex; align-items: baseline; gap: 10px; }
 .timer-seconds { font-size: 3rem; font-weight: bold; line-height: 1; min-width: 2ch; color: var(--text); }
 .timer-seconds.low { color: var(--amber); }
+.timer-seconds.stopped { color: var(--medium); }
 .timer-note { font-size: 1.05rem; color: var(--muted); font-weight: bold; }
 .timer-bar { height: 16px; margin-top: 8px; background: #f1dfc2; border-radius: 10px; overflow: hidden; }
-#timer-fill { height: 100%; width: 100%; background: var(--good); border-radius: 10px; transition: width 0.15s linear; }
+#timer-fill { height: 100%; width: 100%; background: var(--good); border-radius: 10px; transition: width 0.15s linear, background-color 0.3s; }
 #timer-fill.low { background: #d98a1a; }
+#timer-fill.stopped { background: var(--medium); }
 
+/* What the lifelines say. These sit under the answers, so the answers never move while the clock runs. */
 .friend-panel {
-  margin: 12px 0 16px;
+  margin: 14px 0 0;
   padding: 16px;
   text-align: center;
   background: #e8f1ff;
@@ -238,7 +244,7 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .friend-message { margin: 0; font-size: 1.25rem; font-weight: bold; color: var(--medium-dark); }
 
 .hint-panel {
-  margin: 12px 0 16px;
+  margin: 14px 0 0;
   padding: 12px 16px;
   text-align: center;
   background: #fff8d6;
@@ -249,7 +255,7 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .hint-message { margin: 0; font-size: 1.2rem; font-weight: bold; color: #4d3a00; }
 
 .double-panel {
-  margin: 12px 0 16px;
+  margin: 14px 0 0;
   padding: 12px 16px;
   text-align: center;
   background: #fde8e8;
@@ -283,11 +289,10 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .ll-name { display: block; }
 .ll-emoji { font-size: 1.05rem; }
 .ll-cost { display: block; font-size: 1.1rem; color: var(--medium-dark); }
-.lifeline:hover:not(:disabled) { background: #e8f1ff; }
 .lifeline:disabled { background: #eee8de; border-color: #bdb2a3; color: #6b5d50; cursor: not-allowed; }
 .lifeline:disabled .ll-cost { color: #6b5d50; }
-.lifeline.used { text-decoration: line-through; }
-.lifeline.used .ll-cost { text-decoration: none; }
+.lifeline.used .ll-label { text-decoration: line-through; }
+.lifeline.used .ll-emoji { opacity: 0.55; }
 
 @media (max-width: 480px) {
   .big-score { font-size: 2.1rem; }
@@ -339,7 +344,7 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 /* ---------- player profiles ---------- */
 .flash { margin: 0 0 14px; padding: 12px 14px; font-size: 1.1rem; font-weight: bold; text-align: center; background: #e8f1ff; color: var(--medium-dark); border: 3px solid var(--medium); border-radius: 14px; }
 
-.player-box { margin: 0 0 18px; padding: 14px; background: #fff8ec; border: 3px solid var(--option-border); border-radius: 14px; }
+.player-box { margin: 20px 0 0; padding: 14px; background: #fff8ec; border: 3px solid var(--option-border); border-radius: 14px; }
 .player-line { margin: 0 0 6px; font-size: 1.15rem; text-align: center; }
 .player-stats { margin: 0 0 4px; text-align: center; color: var(--muted); font-size: 0.95rem; }
 .player-stats:empty { display: none; }
@@ -433,8 +438,8 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 #end-guest .btn-row .btn { margin-top: 14px; font-size: 1.05rem; }
 
 /* ---------- weekly challenge ---------- */
-.btn-weekly { background: var(--medium); color: #fff; border: 3px solid var(--medium-dark); margin-top: 14px; }
-.btn-weekly:hover { background: var(--medium-dark); }
+.btn-weekly { background: var(--medium); color: #fff; border: 3px solid var(--medium-dark); margin-top: 14px; box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18); }
+.btn-weekly:active:not(:disabled) { box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18); }
 .weekly-sub { margin: -6px 0 12px; }
 .weekly-intro { margin: 0 0 14px; font-size: 1rem; text-align: center; }
 .topics { display: grid; gap: 14px; margin-bottom: 14px; }
@@ -449,3 +454,95 @@ button:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
 .topic-status.partial { background: #fff1b8; color: #6a4300; }
 .topic-card .btn { margin-top: 10px; font-size: 1.1rem; min-height: 56px; }
 .topic-tag { margin: 8px 0 0; font-weight: bold; color: var(--primary-dark); font-size: 1.05rem; }
+
+/* ---------- layout polish: phones (375px) and laptops ---------- */
+/* Hover colours only where there is a mouse. On a phone a tapped button would otherwise stay "hovered". */
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+  .btn-secondary:hover:not(:disabled) { background: #ffe9c4; }
+  .btn-weekly:hover:not(:disabled) { background: var(--medium-dark); }
+  .option:hover:not(:disabled) { background: #ffe9c4; }
+  .choice-easy:hover { background: var(--easy-dark); }
+  .choice-medium:hover { background: var(--medium-dark); }
+  .choice-hard:hover { background: var(--hard-dark); }
+  .lifeline:hover:not(:disabled) { background: #e8f1ff; }
+}
+
+/* In the game itself the title steps back, so the question, the four answers and the lifelines fit on the screen. */
+body[data-screen="choose"] h1,
+body[data-screen="question"] h1 { font-size: 1.35rem; margin-bottom: 6px; }
+body[data-screen="question"] h2#question-text { margin: 14px 0 16px; }
+
+/* Start screen: "How to play" folds away under the buttons */
+.how-to-play { margin-top: 20px; background: var(--option); border: 3px solid var(--option-border); border-radius: 14px; }
+.how-to-play > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 16px;
+  font-size: 1.15rem;
+  font-weight: bold;
+  color: var(--primary-dark);
+  cursor: pointer;
+  list-style: none;
+  border-radius: 11px;
+}
+.how-to-play > summary::-webkit-details-marker { display: none; }
+.how-to-play > summary::before { content: "📖"; }
+.how-to-play > summary::after { content: "▾"; margin-left: auto; font-size: 1.3rem; transition: transform 0.2s; }
+.how-to-play[open] > summary::after { transform: rotate(180deg); }
+.how-to-play > summary:focus-visible { outline: 4px solid var(--focus); outline-offset: 3px; }
+.how-to-play .rules { margin: 0; padding: 0 16px 14px 2.3em; }
+
+/* "Lifelines left" on the choose screen */
+.ll-left { margin-top: 18px; text-align: center; }
+.ll-left-title { margin: 0 0 8px; color: var(--muted); font-size: 0.95rem; font-weight: bold; }
+.ll-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.ll-chips li { padding: 4px 10px; border-radius: 999px; background: #e8f1ff; border: 2px solid #b9cdea; color: var(--medium-dark); font-size: 0.85rem; line-height: 1.35; }
+
+@media (max-width: 480px) {
+  body { padding: 10px; }
+  body[data-screen="choose"] h1 { font-size: 1.15rem; margin-bottom: 2px; }
+  /* on a phone the question screen needs every bit of height for the question and its four answers */
+  body[data-screen="question"] h1 { display: none; }
+  .q-head { margin-top: 8px; }
+  .timer-seconds { font-size: 2.3rem; }
+  .timer-bar { height: 14px; margin-top: 6px; }
+  body[data-screen="question"] h2#question-text { font-size: 1.35rem; margin: 10px 0 12px; }
+  .option { font-size: 1.15rem; min-height: 52px; }
+  .money-bar { font-size: 0.95rem; }
+  .money strong { font-size: 1.35rem; }
+  .hearts { font-size: 1.3rem; letter-spacing: 1px; }
+}
+
+/* The hearts sit beside the question number, so the top bar is one line (money wraps under it only if it must) */
+.money-bar { align-items: center; gap: 4px 10px; line-height: 1.2; }
+.mb-left { flex-direction: row; align-items: center; gap: 10px; }
+.money { margin-left: auto; }
+/* Beside the level pill the seconds sit on the right (on a phone they go under the pill, on the left) */
+@media (min-width: 481px) {
+  .timer-top { margin-left: auto; }
+}
+
+/* Wider screens: the answers go two by two, like a TV quiz */
+@media (min-width: 700px) {
+  .options { grid-template-columns: 1fr 1fr; }
+}
+
+/* Laptops: a slightly wider card, and a tighter question screen so the lifelines fit too,
+   even on a 1366 x 768 screen once the browser's own bars have taken their share. */
+@media (min-width: 900px) {
+  .card, .footer { max-width: 800px; }
+  body[data-screen="question"] .card { padding-top: 16px; }
+  body[data-screen="question"] h1 { line-height: 1.2; }
+  body[data-screen="question"] .q-head { margin-top: 6px; }
+  body[data-screen="question"] .timer-seconds { font-size: 2.4rem; }
+  body[data-screen="question"] h2#question-text { margin: 10px 0 12px; }
+  body[data-screen="question"] .option { min-height: 58px; padding-top: 8px; padding-bottom: 8px; font-size: 1.15rem; }
+  .lifelines { margin-top: 14px; padding-top: 12px; }
+  /* one line per lifeline where it fits: icon and name on the left, the price on the right */
+  .lifeline { flex-direction: row; justify-content: space-between; gap: 8px; min-height: 58px; padding: 6px 12px; text-align: left; }
+  .lifeline .ll-name { flex: 1; }
+  .lifeline .ll-cost { flex: none; }
+}

@@ -105,8 +105,23 @@ var CONFIG = {
     }
     return a;
   }
+  // Shows one screen. Each screen starts at the top of the page (otherwise a phone keeps the old scroll
+  // position and the new screen can open half-way down). `data-screen` lets the CSS tighten the game screens.
   function show(name) {
     Object.keys(screens).forEach(function (k) { screens[k].hidden = (k !== name); });
+    document.body.setAttribute("data-screen", name);
+    try { window.scrollTo(0, 0); } catch (e) { /* ignore */ }
+  }
+  // Moves the keyboard / screen reader focus without scrolling the page (a plain focus() would jump to it).
+  function focusQuietly(el) {
+    try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+  }
+  // Brings something just shown (a hint, Dec's answer, the Next button) into view if it's off the screen.
+  function reveal(el) {
+    try { el.scrollIntoView({ block: "nearest", behavior: reduceMotion() ? "auto" : "smooth" }); } catch (e) { /* ignore */ }
+  }
+  function reduceMotion() {
+    try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
   }
   function levelByKey(key) {
     for (var i = 0; i < CONFIG.levels.length; i++) if (CONFIG.levels[i].key === key) return CONFIG.levels[i];
@@ -132,14 +147,12 @@ var CONFIG = {
     var fl = $("start-flash");
     fl.hidden = !(typeof flash === "string" && flash);
     fl.textContent = (typeof flash === "string") ? flash : "";
-    renderPlayerBox();
     var best = loadBest();
-    var el = $("best-start");
-    el.hidden = (best === null);
-    el.textContent = best === null ? "" : "Your best winnings: " + fmt(best);
+    $("best-start").textContent = best === null ? "" : "Your best winnings: " + fmt(best);
+    renderPlayerBox();
     $("rule-seconds").textContent = CONFIG.secondsPerQuestion;
     show("start");
-    $("btn-start").focus();
+    focusQuietly($("btn-start"));
   }
 
   function makeRunId() {
@@ -219,11 +232,37 @@ var CONFIG = {
       box.appendChild(b);
     });
 
-    var left = Object.keys(CONFIG.lifelines).filter(function (k) { return !usedLifelines[k]; })
-      .map(function (k) { return CONFIG.lifelines[k].label + " (" + fmt(CONFIG.lifelines[k].cost) + ")"; });
-    $("lifelines-left").textContent = left.length ? "Lifelines left, one use each: " + left.join(", ") : "No lifelines left.";
+    renderLifelinesLeft();
     show("choose");
-    $("choose-title").focus();
+    focusQuietly($("choose-title"));
+  }
+
+  // "Lifelines left" on the choose screen: one little chip each (icon, name, price), or "No lifelines left."
+  function renderLifelinesLeft() {
+    var box = $("lifelines-left");
+    box.innerHTML = "";
+    var left = Object.keys(CONFIG.lifelines).filter(function (k) { return !usedLifelines[k]; });
+    var title = document.createElement("p");
+    title.className = "ll-left-title";
+    title.textContent = left.length ? "Lifelines left, one use each:" : "No lifelines left.";
+    box.appendChild(title);
+    if (!left.length) return;
+    var list = document.createElement("ul");
+    list.className = "ll-chips";
+    left.forEach(function (k) {
+      var ll = CONFIG.lifelines[k];
+      var li = document.createElement("li");
+      var icon = document.createElement("span");
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = ll.icon + " ";
+      var cost = document.createElement("strong");
+      cost.textContent = " " + fmt(ll.cost);
+      li.appendChild(icon);
+      li.appendChild(document.createTextNode(ll.label));
+      li.appendChild(cost);
+      list.appendChild(li);
+    });
+    box.appendChild(list);
   }
 
   // ---------------------------------------------------------------- question
@@ -244,8 +283,7 @@ var CONFIG = {
     renderHearts($("q-hearts"));
     $("q-topic").hidden = !weekly;
     if (weekly) $("q-topic").textContent = weeklyTopic.emoji + " " + weeklyTopic.title;
-    $("q-level").textContent = weekly
-      ? level.label + " question: win " + fmt(prize) + ", or lose " + fmt(lossFor(prize))
+    $("q-level").textContent = weekly ? weeklyLevelText(level, prize)
       : (big ? "Big hard question" : level.label + " question") + " for " + fmt(prize);
     $("q-level").className = "level-tag level-" + level.key + (big ? " level-big" : "");
     $("feedback").hidden = true;
@@ -253,13 +291,19 @@ var CONFIG = {
     $("feedback").className = "feedback";
     $("btn-next").hidden = true;
     $("double-panel").hidden = true;
+    $("lifelines").hidden = false;
     renderQuestion();
 
     updateMoney();
     updateLifelines();
     show("question");
     startTimer(CONFIG.secondsPerQuestion * 1000);
-    $("question-text").focus();
+    focusQuietly($("question-text"));
+  }
+
+  // "Easy: win £100 or lose £50" (short enough to sit on one line on a phone)
+  function weeklyLevelText(level, prize) {
+    return level.label + ": win " + fmt(prize) + " or lose " + fmt(lossFor(prize));
   }
 
   // Shows `current` (its text and four shuffled options). Also used by "Swap the question".
@@ -291,9 +335,10 @@ var CONFIG = {
     var total = CONFIG.secondsPerQuestion * 1000;
     $("timer-seconds").textContent = secs;
     $("timer-fill").style.width = Math.max(0, remainingMs / total * 100) + "%";
-    var low = remainingMs <= 10000 && !clockStopped;
-    $("timer-fill").className = low ? "low" : "";
-    $("timer-seconds").className = "timer-seconds" + (low ? " low" : "");
+    var paused = clockStopped || askDecBusy;   // shown in calm blue, so a stopped clock looks stopped
+    var low = remainingMs <= 10000 && !paused;
+    $("timer-fill").className = paused ? "stopped" : (low ? "low" : "");
+    $("timer-seconds").className = "timer-seconds" + (paused ? " stopped" : (low ? " low" : ""));
     var note = "seconds left";
     if (clockStopped && !askDecBusy) note = "Clock stopped. Take your time!";
     else if (askDecBusy) note = "Asking Dec...";
@@ -474,6 +519,7 @@ var CONFIG = {
     if (!clockStopped) pauseTimer();
     $("friend-message").textContent = CONFIG.askDec.thinkingLine;
     $("friend-panel").hidden = false;
+    reveal($("friend-panel"));
     setOptionsDisabled(true);
     renderTimer();
     updateLifelines();
@@ -494,6 +540,7 @@ var CONFIG = {
     if (!spend("hint")) return;
     $("hint-message").textContent = current.hint || "Sorry, there's no hint for this one. Go with your gut!";
     $("hint-panel").hidden = false;
+    reveal($("hint-panel"));
     updateLifelines();
   }
 
@@ -515,7 +562,7 @@ var CONFIG = {
       if (sq.level !== currentLevel.key) {         // only if a topic has no spare at this level
         currentLevel = levelByKey(sq.level);
         currentPrize = currentLevel.prize;
-        $("q-level").textContent = currentLevel.label + " question: win " + fmt(currentPrize) + ", or lose " + fmt(lossFor(currentPrize));
+        $("q-level").textContent = weeklyLevelText(currentLevel, currentPrize);
         $("q-level").className = "level-tag level-" + currentLevel.key;
       }
       current = sq;
@@ -525,7 +572,8 @@ var CONFIG = {
     renderQuestion();
     if (clockStopped) renderTimer(); else startTimer(CONFIG.secondsPerQuestion * 1000);
     updateLifelines();
-    $("question-text").focus();
+    focusQuietly($("question-text"));
+    reveal($("question-text"));
   }
 
   // Double or nothing: right doubles this question's prize; wrong (or out of time) sends the money back to £0.
@@ -534,6 +582,7 @@ var CONFIG = {
     doubleArmed = true;
     $("double-message").textContent = "🎲 Double or nothing! Get this right to win " + fmt(currentPrize * 2) + ". Get it wrong and your money goes back to " + fmt(0) + ".";
     $("double-panel").hidden = false;
+    reveal($("double-panel"));
     updateLifelines();
   }
 
@@ -634,11 +683,13 @@ var CONFIG = {
     $("feedback").hidden = false;
     updateMoney();
     updateLifelines();
+    $("lifelines").hidden = true;   // nothing left to press until the next question, so keep the screen clear
     var next = $("btn-next");
     if (mode === "weekly") next.textContent = endReason ? "See my result" : "Next question";
     else next.textContent = endReason ? "See what I won" : "Choose my next question";
     next.hidden = false;
-    next.focus();
+    focusQuietly(next);
+    reveal(next);
   }
 
   function next() {
@@ -683,7 +734,7 @@ var CONFIG = {
       (best === null ? "" : "Your best winnings on this device: " + fmt(best));
     show("end");
     renderEndSave();
-    $("end-title").focus();
+    focusQuietly($("end-title"));
   }
 
   // ---------------------------------------------------------------- shared leaderboard
@@ -876,7 +927,7 @@ var CONFIG = {
     renderLbTabs();
     show("leaderboard");
     loadEndlessBoard();
-    $("leaderboard-title").focus();
+    focusQuietly($("leaderboard-title"));
   }
   function renderLbTabs() {
     $("tab-lb-overall").setAttribute("aria-selected", lbTab === "overall" ? "true" : "false");
@@ -972,7 +1023,7 @@ var CONFIG = {
   function backToEnd() {
     show("end");
     renderEndSave();
-    $("end-title").focus();
+    focusQuietly($("end-title"));
   }
 
   function setupLeaderboardUi() {
@@ -1025,6 +1076,8 @@ var CONFIG = {
 
   function renderPlayerBox() {
     var box = $("player-box");
+    // The best winnings on this device. When signed in, the profile's own best is in the box, so this would repeat it.
+    $("best-start").hidden = loadBest() === null || !!(lbOn && session && me);
     if (!lbOn) { box.hidden = true; return; }
     box.hidden = false;
     $("player-in").hidden = !session;
@@ -1064,7 +1117,7 @@ var CONFIG = {
     $("auth-msg").textContent = "";
     renderAuthMode();
     show("auth");
-    $("auth-title").focus();
+    focusQuietly($("auth-title"));
   }
 
   function renderAuthMode() {
@@ -1131,7 +1184,7 @@ var CONFIG = {
     $("btn-delete").hidden = false;
     $("delete-msg").textContent = "";
     show("profile");
-    $("profile-title").focus();
+    focusQuietly($("profile-title"));
     loadStats();
     refreshMe();
   }
@@ -1329,7 +1382,7 @@ var CONFIG = {
     $("weekly-note").hidden = !(typeof note === "string" && note);
     $("weekly-note").textContent = (typeof note === "string") ? note : "";
     show("weekly");
-    $("weekly-title").focus();
+    focusQuietly($("weekly-title"));
     weeklyMessage("Loading this week's challenge...", false);
     apiRequest("GET", "/weekly/state").then(function (state) {
       weeklyState = state;
@@ -1437,7 +1490,7 @@ var CONFIG = {
       $("ready-rules").appendChild(li);
     });
     show("weeklyReady");
-    $("ready-title").focus();
+    focusQuietly($("ready-title"));
   }
 
   function startWeeklyRun() {
@@ -1500,7 +1553,7 @@ var CONFIG = {
     };
     show("end");
     renderEndSave();
-    $("end-title").focus();
+    focusQuietly($("end-title"));
   }
 
   // One leaderboard for the whole week, all three topics together (each topic go is its own row).
@@ -1511,7 +1564,7 @@ var CONFIG = {
     $("lb-sub").textContent = "All three topics together. Each go is its own row, so a player can be on it up to three times. The board starts afresh every Monday.";
     show("leaderboard");
     loadBoard($("board-main"), "/weekly/leaderboard", "weekly");
-    $("leaderboard-title").focus();
+    focusQuietly($("leaderboard-title"));
   }
 
   function setupWeeklyUi() {
@@ -1540,5 +1593,7 @@ var CONFIG = {
   setupLeaderboardUi();
   setupProfileUi();
   setupWeeklyUi();
+  // Someone new on this device sees "How to play" opened out. After that it stays folded (one tap opens it).
+  if (loadBest() === null && !session) $("how-to-play").open = true;
   showStart();
 })();
